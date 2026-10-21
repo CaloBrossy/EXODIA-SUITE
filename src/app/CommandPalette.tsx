@@ -31,6 +31,8 @@ const TOOLS: [string, string, string][] = [
   ['Entropía de Shannon', '/workbench/math?t=shannon', 'información bits probabilidad'],
   ['Conversor de unidades', '/workbench/units', 'medidas temperatura longitud'],
   ['Explorador de fórmulas', '/workbench/formulas', 'latex ecuaciones'],
+  ['Dev Lab: de problema a código', '/workbench/dev', 'programación algoritmo pseudocódigo python java'],
+  ['Guía de estilo de lenguajes', '/workbench/dev?t=guia', 'convenciones nombres errores comunes'],
   ['Pomodoro', '/focus', 'temporizador concentración'],
   ['Tareas', '/focus/tasks', 'pendientes'],
 ]

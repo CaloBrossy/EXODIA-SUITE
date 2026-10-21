@@ -19,6 +19,7 @@ const TABLE_LABEL: Record<TableName, string> = {
   sketches: 'Pizarras',
   tools: 'Herramientas',
   kv: 'Configuración',
+  devProblems: 'Problemas de programación',
 }
 
 function StorageInfo() {

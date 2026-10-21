@@ -7,6 +7,7 @@ const PhysicsLab = lazy(() => import('./PhysicsLab'))
 const UnitConverter = lazy(() => import('./UnitConverter'))
 const MathTools = lazy(() => import('./MathTools'))
 const Formulas = lazy(() => import('./Formulas'))
+const DevLab = lazy(() => import('./devlab/DevLab'))
 
 const TOOLS = [
   { id: 'calculator', label: 'Calculadora', el: Calculator },
@@ -14,6 +15,7 @@ const TOOLS = [
   { id: 'math', label: 'Matemática', el: MathTools },
   { id: 'units', label: 'Unidades', el: UnitConverter },
   { id: 'formulas', label: 'Fórmulas', el: Formulas },
+  { id: 'dev', label: 'Programación', el: DevLab },
 ] as const
 
 export default function Workbench() {

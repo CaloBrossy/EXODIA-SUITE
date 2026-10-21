@@ -3,6 +3,7 @@ import { db, SCHEMA_VERSION, TABLE_NAMES, type TableName } from '@/db/db'
 import {
   CalculationSchema,
   ConceptSchema,
+  DevProblemSchema,
   FormulaSchema,
   KvSchema,
   NoteSchema,
@@ -30,6 +31,7 @@ const DataSchema = z.object({
   sketches: z.array(SketchSchema),
   tools: z.array(ToolLinkSchema),
   kv: z.array(KvSchema),
+  devProblems: z.array(DevProblemSchema).default([]),
 })
 
 export const BackupSchema = z.object({
@@ -67,6 +69,8 @@ function migrateBackup(raw: unknown): unknown {
     }
     b.schemaVersion = 2
   }
+  // v3 solo agrega la tabla devProblems, que el esquema completa con [] si falta.
+  if (b.schemaVersion < 3) b.schemaVersion = 3
   return b
 }
 

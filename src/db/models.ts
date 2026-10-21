@@ -166,3 +166,19 @@ export type ToolLink = z.infer<typeof ToolLinkSchema>
 
 export const KvSchema = z.object({ key: z.string().min(1).max(200), value: z.unknown() })
 export type KvEntry = z.infer<typeof KvSchema>
+
+/** Problema de Dev Lab. Solo se guarda la entrada: la solución se regenera de forma determinista. */
+export const DevProblemSchema = z.object({
+  id,
+  title: z.string().max(300),
+  text: z.string().max(5000),
+  kind: z.string().max(30),
+  strategy: z.string().max(60),
+  lang: z.string().max(20),
+  mode: z.enum(['guided', 'consult']),
+  stage: z.string().max(20),
+  revealed: z.number().int().min(0).max(10),
+  createdAt: ts,
+  updatedAt: ts,
+})
+export type DevProblem = z.infer<typeof DevProblemSchema>
