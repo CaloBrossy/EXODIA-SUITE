@@ -5,7 +5,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#111113" />
+    <meta name="theme-color" content="#06070f" />
     <meta name="description" content="EXODIA — laboratorio personal de conocimiento y ciencia" />
     <title>EXODIA</title>
     <script>
@@ -13,6 +13,7 @@
         var t = localStorage.getItem('exodia.theme')
         var dark = t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches
         if (dark) document.documentElement.classList.add('dark')
+        if (localStorage.getItem('exodia.fx') === 'lite') document.documentElement.classList.add('fx-lite')
       } catch (e) {}
     </script>
   </head>

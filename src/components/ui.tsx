@@ -7,10 +7,10 @@ type Variant = 'primary' | 'outline' | 'ghost' | 'danger'
 type Size = 'sm' | 'md' | 'icon'
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-accent text-accent-fg hover:opacity-90',
-  outline: 'border border-line bg-panel hover:bg-sunken',
+  primary: 'btn-grad hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]',
+  outline: 'border border-line bg-field hover:bg-sunken hover:border-accent/40 hover:-translate-y-px active:translate-y-0',
   ghost: 'hover:bg-sunken text-fg',
-  danger: 'border border-danger/40 text-danger hover:bg-danger/10',
+  danger: 'border border-danger/40 text-danger hover:bg-danger/10 hover:-translate-y-px',
 }
 const sizes: Record<Size, string> = {
   sm: 'h-7 px-2.5 text-[13px] gap-1.5',
@@ -20,7 +20,7 @@ const sizes: Record<Size, string> = {
 
 export const buttonClass = (variant: Variant = 'outline', size: Size = 'md') =>
   cx(
-    'inline-flex items-center rounded-md font-medium whitespace-nowrap transition-colors disabled:opacity-45 disabled:pointer-events-none cursor-pointer select-none',
+    'group inline-flex items-center rounded-lg font-medium whitespace-nowrap transition-[transform,box-shadow,background-color,border-color,opacity] duration-200 disabled:opacity-45 disabled:pointer-events-none cursor-pointer select-none',
     variants[variant],
     sizes[size],
   )
@@ -40,7 +40,7 @@ export function ButtonLink({ to, variant, size, className, children }: { to: str
 }
 
 const fieldBase =
-  'w-full rounded-md border border-line bg-panel px-2.5 text-sm text-fg placeholder:text-muted/70 focus:border-accent focus:outline-none disabled:opacity-50'
+  'w-full rounded-lg border border-line bg-field px-2.5 text-sm text-fg placeholder:text-muted/70 transition-[border-color,box-shadow] focus:border-accent focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--nx-accent)_22%,transparent)] focus:outline-none disabled:opacity-50'
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(({ className, ...p }, ref) => (
   <input ref={ref} className={cx(fieldBase, 'h-9', className)} {...p} />
@@ -66,10 +66,10 @@ export function Field({ label, hint, children, className }: { label: string; hin
 
 export function Panel({ title, actions, children, className, bodyClass }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; bodyClass?: string }) {
   return (
-    <section className={cx('rounded-lg border border-line bg-panel', className)}>
+    <section className={cx('glass rounded-2xl', className)}>
       {(title || actions) && (
         <header className="flex items-center justify-between gap-2 border-b border-line px-4 py-2.5">
-          <h2 className="text-[13px] font-semibold tracking-wide text-muted uppercase">{title}</h2>
+          <h2 className="flex items-center gap-2 text-[12.5px] font-semibold tracking-wider text-muted uppercase"><span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_10px_var(--nx-accent)]" />{title}</h2>
           <div className="flex items-center gap-1">{actions}</div>
         </header>
       )}
@@ -82,7 +82,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
   return (
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="text-gradient text-2xl font-semibold tracking-tight">{title}</h1>
         {subtitle && <p className="mt-0.5 text-sm text-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -92,7 +92,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
 
 export function Tag({ children, active, onClick }: { children: ReactNode; active?: boolean; onClick?: () => void }) {
   const cls = cx(
-    'inline-flex items-center rounded border px-1.5 py-px text-xs',
+    'inline-flex items-center rounded-full border px-2 py-px text-xs transition-colors',
     active ? 'border-accent bg-accent/15 text-fg' : 'border-line text-muted',
     onClick && 'cursor-pointer hover:border-accent',
   )
@@ -107,7 +107,7 @@ export function Tag({ children, active, onClick }: { children: ReactNode; active
 
 export function Empty({ title, children, action }: { title: string; children?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-start gap-2 rounded-md border border-dashed border-line px-4 py-5 text-sm">
+    <div className="flex flex-col items-start gap-2 rounded-xl border border-dashed border-line bg-sunken/40 px-4 py-5 text-sm">
       <p className="font-medium">{title}</p>
       {children && <p className="text-muted">{children}</p>}
       {action}
@@ -116,13 +116,13 @@ export function Empty({ title, children, action }: { title: string; children?: R
 }
 
 export function Loading({ label = 'Cargando…' }: { label?: string }) {
-  return <p className="py-4 text-sm text-muted">{label}</p>
+  return <p className="flex items-center gap-2 py-4 text-sm text-muted"><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />{label}</p>
 }
 
 export function ErrorText({ children }: { children: ReactNode }) {
   if (!children) return null
   return (
-    <p role="alert" className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
+    <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
       {children}
     </p>
   )
@@ -134,7 +134,7 @@ export function Kbd({ children }: { children: ReactNode }) {
 
 export function Tabs<T extends string>({ value, onChange, items }: { value: T; onChange: (v: T) => void; items: { id: T; label: string }[] }) {
   return (
-    <div role="tablist" className="inline-flex flex-wrap gap-1 rounded-md border border-line bg-panel p-0.5">
+    <div role="tablist" className="glass inline-flex flex-wrap gap-1 rounded-xl p-1">
       {items.map((it) => (
         <button
           key={it.id}
@@ -142,7 +142,7 @@ export function Tabs<T extends string>({ value, onChange, items }: { value: T; o
           type="button"
           aria-selected={value === it.id}
           onClick={() => onChange(it.id)}
-          className={cx('rounded px-3 py-1 text-sm', value === it.id ? 'bg-sunken font-medium text-fg' : 'text-muted hover:text-fg')}
+          className={pillClass(value === it.id)}
         >
           {it.label}
         </button>
@@ -150,3 +150,6 @@ export function Tabs<T extends string>({ value, onChange, items }: { value: T; o
     </div>
   )
 }
+
+export const pillClass = (active: boolean) =>
+  cx('rounded-lg px-3 py-1 text-sm transition-all duration-200', active ? 'pill-active' : 'text-muted hover:bg-sunken hover:text-fg')

@@ -98,7 +98,7 @@ export function Subjects() {
     <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
       <div className="flex flex-col gap-2">
         <Button size="sm" onClick={add} className="self-start"><Plus size={13} /> Materia</Button>
-        <ul className="rounded-lg border border-line bg-panel">
+        <ul className="glass rounded-xl">
           {visible.map((s) => (
             <li key={s.id}>
               <button onClick={() => setSel(s.id)} className={cx('w-full border-b border-line px-3 py-2 text-left text-sm last:border-0 hover:bg-sunken', current?.id === s.id && 'bg-sunken font-medium', s.archived && 'text-muted')}>

@@ -70,7 +70,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
           e.preventDefault()
           close(false)
         }}
-        className="m-auto w-[min(92vw,420px)] rounded-lg border border-line bg-panel p-0 text-fg backdrop:bg-black/50"
+        className="m-auto w-[min(92vw,420px)] rounded-2xl border border-line bg-overlay p-0 text-fg shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-sm"
       >
         {pending && (
           <div className="flex flex-col gap-3 p-5">
@@ -90,7 +90,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
           <div
             key={t.id}
             className={cx(
-              'pointer-events-auto flex items-start gap-2 rounded-md border bg-panel px-3 py-2 text-sm shadow-sm',
+              'pointer-events-auto flex items-start gap-2 rounded-xl border bg-overlay px-3 py-2 text-sm shadow-lg',
               t.kind === 'error' ? 'border-danger/50 text-danger' : t.kind === 'ok' ? 'border-ok/50' : 'border-line',
             )}
           >

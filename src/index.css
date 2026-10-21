@@ -16,34 +16,59 @@
   --color-accent-fg: var(--nx-accent-fg);
   --color-danger: var(--nx-danger);
   --color-ok: var(--nx-ok);
+  --color-accent2: var(--nx-accent-2);
+  --color-overlay: var(--nx-overlay);
+  --color-field: var(--nx-input);
 }
 
 :root {
-  --nx-bg: #f6f5f1;
-  --nx-panel: #ffffff;
-  --nx-sunken: #eeece6;
-  --nx-fg: #1c1b19;
-  --nx-muted: #6b6760;
-  --nx-line: #dedad1;
-  --nx-accent: #a66a00;
+  --nx-bg: #eef0fb;
+  --nx-panel: rgb(255 255 255 / 0.6);
+  --nx-overlay: rgb(255 255 255 / 0.88);
+  --nx-input: rgb(255 255 255 / 0.55);
+  --nx-sunken: rgb(30 27 75 / 0.055);
+  --nx-fg: #161735;
+  --nx-muted: #5b5f82;
+  --nx-line: rgb(30 27 75 / 0.11);
+  --nx-accent: #7c3aed;
+  --nx-accent-2: #0891b2;
+  --nx-accent-3: #db2777;
   --nx-accent-fg: #ffffff;
-  --nx-danger: #b42318;
-  --nx-ok: #2e7d4f;
+  --nx-danger: #e11d48;
+  --nx-ok: #059669;
+  --nx-highlight: rgb(255 255 255 / 0.85);
+  --nx-shadow: 0 10px 40px -18px rgb(49 46 129 / 0.35);
+  --nx-blob-opacity: 0.32;
+  --nx-grid: rgb(30 27 75 / 0.05);
   color-scheme: light;
 }
 
 .dark {
-  --nx-bg: #111113;
-  --nx-panel: #18181b;
-  --nx-sunken: #0c0c0e;
-  --nx-fg: #e7e5e0;
-  --nx-muted: #8f8c85;
-  --nx-line: #2a2a2f;
-  --nx-accent: #e8b04b;
-  --nx-accent-fg: #17130a;
-  --nx-danger: #f0776c;
-  --nx-ok: #6cc690;
+  --nx-bg: #06070f;
+  --nx-panel: rgb(255 255 255 / 0.05);
+  --nx-overlay: rgb(16 17 32 / 0.9);
+  --nx-input: rgb(255 255 255 / 0.04);
+  --nx-sunken: rgb(0 0 0 / 0.28);
+  --nx-fg: #eceefe;
+  --nx-muted: #9298ba;
+  --nx-line: rgb(255 255 255 / 0.09);
+  --nx-accent: #a78bfa;
+  --nx-accent-2: #22d3ee;
+  --nx-accent-3: #f472b6;
+  --nx-accent-fg: #0b0820;
+  --nx-danger: #fb7185;
+  --nx-ok: #34d399;
+  --nx-highlight: rgb(255 255 255 / 0.08);
+  --nx-shadow: 0 16px 50px -20px rgb(0 0 0 / 0.75);
+  --nx-blob-opacity: 0.4;
+  --nx-grid: rgb(255 255 255 / 0.035);
   color-scheme: dark;
+}
+
+/* Colores fijos de los botones con degradado: contraste AA con texto blanco en ambos temas. */
+:root {
+  --nx-btn-a: #7c3aed;
+  --nx-btn-b: #0e7490;
 }
 
 html,
@@ -54,6 +79,272 @@ body,
 body {
   @apply bg-bg text-fg font-sans antialiased;
   font-size: 14.5px;
+}
+select option {
+  background: var(--nx-bg);
+  color: var(--nx-fg);
+}
+
+/* ───────── Vidrio ───────── */
+.bg-panel,
+.glass {
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+}
+.glass {
+  background: var(--nx-panel);
+  border: 1px solid var(--nx-line);
+  box-shadow: inset 0 1px 0 var(--nx-highlight), var(--nx-shadow);
+}
+.bg-overlay {
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+}
+
+.text-gradient {
+  background: linear-gradient(110deg, var(--nx-fg) 10%, var(--nx-accent) 45%, var(--nx-accent-2) 70%, var(--nx-fg) 95%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 9s linear infinite;
+}
+
+.btn-grad {
+  color: #fff;
+  background: linear-gradient(135deg, var(--nx-btn-a), var(--nx-btn-b));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3), 0 8px 22px -10px var(--nx-btn-a);
+}
+.btn-grad:hover {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 14px 30px -10px var(--nx-btn-a);
+}
+
+.pill-active {
+  color: var(--nx-fg);
+  font-weight: 500;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--nx-accent) 24%, transparent), color-mix(in srgb, var(--nx-accent-2) 16%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nx-accent) 35%, transparent), 0 6px 18px -10px var(--nx-accent);
+}
+
+.icon-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.8rem;
+  color: #fff;
+  background: linear-gradient(135deg, var(--nx-btn-a), var(--nx-btn-b));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 10px 24px -12px var(--nx-btn-a);
+}
+
+/* ───────── Fondo aurora ───────── */
+.aurora {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--nx-bg);
+}
+.aurora span {
+  position: absolute;
+  width: 46vmax;
+  height: 46vmax;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: var(--nx-blob-opacity);
+  will-change: transform;
+}
+.aurora span:nth-child(1) {
+  background: var(--nx-accent);
+  top: -18vmax;
+  left: -10vmax;
+  animation: drift-a 32s ease-in-out infinite alternate;
+}
+.aurora span:nth-child(2) {
+  background: var(--nx-accent-2);
+  bottom: -22vmax;
+  right: -12vmax;
+  animation: drift-b 38s ease-in-out infinite alternate;
+}
+.aurora span:nth-child(3) {
+  background: var(--nx-accent-3);
+  top: 30%;
+  left: 40%;
+  width: 30vmax;
+  height: 30vmax;
+  opacity: calc(var(--nx-blob-opacity) * 0.6);
+  animation: drift-c 44s ease-in-out infinite alternate;
+}
+.aurora::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(var(--nx-grid) 1px, transparent 1px), linear-gradient(90deg, var(--nx-grid) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at 50% 40%, #000 20%, transparent 75%);
+}
+
+/* ───────── Pseudo 3D: inclinación con el puntero (ver useTiltEffect) ───────── */
+[data-tilt] {
+  position: relative;
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateZ(0);
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s, border-color 0.3s;
+}
+[data-tilt].is-tilting {
+  transition: transform 0.08s linear, box-shadow 0.3s, border-color 0.3s;
+  border-color: color-mix(in srgb, var(--nx-accent) 40%, transparent);
+  box-shadow: inset 0 1px 0 var(--nx-highlight), 0 24px 50px -24px color-mix(in srgb, var(--nx-accent) 55%, transparent);
+}
+[data-tilt]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgb(255 255 255 / 0.14), transparent 45%);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+[data-tilt].is-tilting::after {
+  opacity: 1;
+}
+.tilt-card {
+  border: 1px solid var(--nx-line);
+  box-shadow: inset 0 1px 0 var(--nx-highlight), var(--nx-shadow);
+}
+.tilt-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--nx-panel);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+}
+.fx-lite .tilt-card::before {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: color-mix(in srgb, var(--nx-bg) 82%, var(--nx-fg) 4%);
+}
+[data-tilt] .depth {
+  transform: translateZ(34px);
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+[data-tilt] .depth-sm {
+  transform: translateZ(16px);
+}
+
+/* ───────── Íconos animados (se activan con :hover del contenedor .group) ───────── */
+.group:hover .ico-bounce { animation: ico-bounce 0.7s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.group:hover .ico-wiggle { animation: ico-wiggle 0.6s ease-in-out; }
+.group:hover .ico-flip { animation: ico-flip 0.8s cubic-bezier(0.3, 1.3, 0.5, 1); }
+.group:hover .ico-pop { animation: ico-pop 0.5s cubic-bezier(0.3, 1.8, 0.5, 1); }
+.group:hover .ico-spin { animation: ico-spin 0.9s cubic-bezier(0.4, 1.4, 0.5, 1); }
+.group:hover .ico-swing { animation: ico-swing 0.8s ease-in-out; transform-origin: 70% 30%; }
+.group:hover .ico-draw { animation: ico-draw 0.8s ease-in-out; }
+.group:hover .ico-pulse { animation: ico-pulse 0.9s ease-in-out; }
+.ico-float { animation: ico-float 4s ease-in-out infinite; }
+.ico-breathe { animation: ico-pulse 2.6s ease-in-out infinite; }
+
+/* ───────── Entradas de página ───────── */
+.page-in {
+  animation: page-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+.stagger > * {
+  animation: rise 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+.stagger > :nth-child(2) { animation-delay: 60ms; }
+.stagger > :nth-child(3) { animation-delay: 120ms; }
+.stagger > :nth-child(4) { animation-delay: 180ms; }
+.stagger > :nth-child(5) { animation-delay: 240ms; }
+.stagger > :nth-child(6) { animation-delay: 300ms; }
+.stagger > :nth-child(n + 7) { animation-delay: 360ms; }
+
+@keyframes page-in {
+  from { opacity: 0; transform: perspective(1200px) translateY(16px) rotateX(5deg) scale(0.99); }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+}
+@keyframes shimmer {
+  to { background-position: -220% 0; }
+}
+@keyframes drift-a {
+  to { transform: translate(18vmax, 12vmax) scale(1.15); }
+}
+@keyframes drift-b {
+  to { transform: translate(-16vmax, -10vmax) scale(1.1); }
+}
+@keyframes drift-c {
+  to { transform: translate(-22vmax, 14vmax) scale(0.85); }
+}
+@keyframes ico-bounce {
+  30% { transform: translateY(-5px) scale(1.08); }
+  60% { transform: translateY(1px) scale(0.96); }
+}
+@keyframes ico-wiggle {
+  20% { transform: rotate(-14deg); }
+  40% { transform: rotate(10deg); }
+  60% { transform: rotate(-6deg); }
+  80% { transform: rotate(3deg); }
+}
+@keyframes ico-flip {
+  from { transform: perspective(200px) rotateY(0); }
+  to { transform: perspective(200px) rotateY(360deg); }
+}
+@keyframes ico-pop {
+  40% { transform: scale(1.3); }
+  70% { transform: scale(0.92); }
+}
+@keyframes ico-spin {
+  to { transform: rotate(180deg); }
+}
+@keyframes ico-swing {
+  25% { transform: rotate(-25deg); }
+  55% { transform: rotate(15deg); }
+  80% { transform: rotate(-6deg); }
+}
+@keyframes ico-draw {
+  25% { transform: translate(-2px, 2px) rotate(-8deg); }
+  50% { transform: translate(2px, -1px) rotate(6deg); }
+  75% { transform: translate(-1px, 1px) rotate(-3deg); }
+}
+@keyframes ico-pulse {
+  50% { transform: scale(1.15); filter: drop-shadow(0 0 6px var(--nx-accent)); }
+}
+@keyframes ico-float {
+  50% { transform: translateY(-3px) rotate(-4deg); }
+}
+
+/* ───────── Modo de efectos reducidos (ajuste del usuario o del sistema) ───────── */
+.fx-lite .aurora span {
+  animation: none;
+}
+.fx-lite .bg-panel,
+.fx-lite .glass {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.fx-lite .bg-panel,
+.fx-lite .glass {
+  background-color: color-mix(in srgb, var(--nx-bg) 82%, var(--nx-fg) 4%);
+}
+.fx-lite [data-tilt] {
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  [data-tilt] {
+    transform: none;
+  }
 }
 ::selection {
   background: color-mix(in srgb, var(--nx-accent) 35%, transparent);

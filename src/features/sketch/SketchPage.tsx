@@ -54,10 +54,10 @@ export default function SketchPage() {
       />
       {!list && <Loading />}
       {list?.length === 0 && <Empty title="Todavía no hay pizarras" action={<Button size="sm" onClick={create}>Crear una</Button>}>Se guardan automáticamente y pueden exportarse a PNG.</Empty>}
-      <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {list?.map((s) => (
           <li key={s.id}>
-            <Link to={`/sketch/${s.id}`} className="block rounded-lg border border-line bg-panel px-4 py-3 hover:bg-sunken">
+            <Link to={`/sketch/${s.id}`} data-tilt="8" className="block tilt-card rounded-xl px-4 py-3">
               <p className="truncate font-medium">{s.title}</p>
               <p className="text-xs text-muted">{s.strokeCount} trazos · {relativeTime(s.updatedAt)}</p>
             </Link>

@@ -1,6 +1,6 @@
 import { lazy } from 'react'
 import { NavLink, Navigate, useParams } from 'react-router-dom'
-import { cx } from '@/components/ui'
+import { pillClass } from '@/components/ui'
 
 const Calculator = lazy(() => import('./Calculator'))
 const PhysicsLab = lazy(() => import('./PhysicsLab'))
@@ -25,10 +25,10 @@ export default function Workbench() {
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">Workbench</h1>
-        <nav className="inline-flex flex-wrap gap-1 rounded-md border border-line bg-panel p-0.5">
+        <h1 className="text-gradient text-2xl font-semibold tracking-tight">Workbench</h1>
+        <nav className="glass inline-flex flex-wrap gap-1 rounded-xl p-1">
           {TOOLS.map((t) => (
-            <NavLink key={t.id} to={`/workbench/${t.id}`} className={({ isActive }) => cx('rounded px-3 py-1 text-sm', isActive ? 'bg-sunken font-medium' : 'text-muted hover:text-fg')}>
+            <NavLink key={t.id} to={`/workbench/${t.id}`} className={({ isActive }) => pillClass(isActive)}>
               {t.label}
             </NavLink>
           ))}

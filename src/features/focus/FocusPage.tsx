@@ -7,7 +7,7 @@ import { usePomodoro } from '@/hooks/usePomodoro'
 import { PhaseLabel, type PomodoroConfig } from '@/lib/pomodoro'
 import { deleteSession, saveConfig, validateConfig } from '@/services/focus'
 import { useFeedback } from '@/components/feedback'
-import { Button, cx, ErrorText, Field, Input, Panel } from '@/components/ui'
+import { Button, cx, ErrorText, Field, Input, Panel, pillClass } from '@/components/ui'
 import { formatDateTime } from '@/lib/text'
 import { PomodoroTimer } from './PomodoroTimer'
 import { SessionSummary } from './SessionSummary'
@@ -93,10 +93,10 @@ export default function FocusPage() {
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">Focus</h1>
-        <nav className="inline-flex gap-1 rounded-md border border-line bg-panel p-0.5">
+        <h1 className="text-gradient text-2xl font-semibold tracking-tight">Focus</h1>
+        <nav className="glass inline-flex flex-wrap gap-1 rounded-xl p-1">
           {TABS.map((t) => (
-            <NavLink key={t.id} to={t.to} end className={({ isActive }) => cx('rounded px-3 py-1 text-sm', isActive ? 'bg-sunken font-medium' : 'text-muted hover:text-fg')}>{t.label}</NavLink>
+            <NavLink key={t.id} to={t.to} end className={({ isActive }) => pillClass(isActive)}>{t.label}</NavLink>
           ))}
         </nav>
       </div>

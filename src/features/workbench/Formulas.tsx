@@ -223,7 +223,7 @@ export default function Formulas() {
           {facets.disciplines.map((d) => <option key={d}>{d}</option>)}
         </Select>
         {!formulas && <Loading />}
-        <ul className="flex flex-col divide-y divide-line rounded-lg border border-line bg-panel">
+        <ul className="flex flex-col divide-y divide-line glass rounded-xl">
           {list.map((f) => (
             <li key={f.id}>
               <Link to={`/workbench/formulas/${f.id}`} className={cx('block px-3 py-2 hover:bg-sunken', f.id === id && 'bg-sunken')}>

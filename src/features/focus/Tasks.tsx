@@ -133,7 +133,7 @@ export function Tasks({ subjectId }: { subjectId?: string }) {
       {tasks.length === 0 ? (
         <Empty title={filter === 'done' ? 'Sin tareas completadas' : 'No hay tareas pendientes'}>Agregá una tarea con el formulario de arriba.</Empty>
       ) : (
-        <ul className="rounded-lg border border-line bg-panel">{tasks.map((t) => <TaskRow key={t.id} t={t} subjects={data.subjects} />)}</ul>
+        <ul className="glass rounded-xl">{tasks.map((t) => <TaskRow key={t.id} t={t} subjects={data.subjects} />)}</ul>
       )}
     </div>
   )

@@ -22,8 +22,8 @@ const chunk = (type, data) => {
 }
 
 function icon(size) {
-  const bg = [17, 17, 19]
-  const fg = [232, 176, 75]
+  const bg = [6, 7, 15]
+  const fg = [167, 139, 250]
   const c = size / 2
   const rows = []
   for (let y = 0; y < size; y++) {

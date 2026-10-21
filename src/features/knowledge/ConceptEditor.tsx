@@ -86,14 +86,14 @@ export default function ConceptEditor() {
             </button>
           </div>
           {preview === s.key ? (
-            <div className="min-h-24 rounded-md border border-line bg-panel p-3"><Markdown source={form[s.key] || '_Vacío_'} /></div>
+            <div className="min-h-24 glass rounded-xl p-3"><Markdown source={form[s.key] || '_Vacío_'} /></div>
           ) : (
             <Textarea rows={s.key === 'explanation' ? 8 : 5} className="font-mono text-[13px]" value={form[s.key]} onChange={(e) => set(s.key, e.target.value)} />
           )}
         </div>
       ))}
       <Field label="Conceptos relacionados (la relación es bidireccional)">
-        <div className="rounded-md border border-line bg-panel p-3">
+        <div className="glass rounded-xl p-3">
           <EntityPicker
             items={all.filter((c) => c.id !== id).map((c) => ({ id: c.id, label: c.title, sub: c.discipline }))}
             selected={form.relatedIds}

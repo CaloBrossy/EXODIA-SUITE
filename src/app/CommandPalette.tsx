@@ -57,7 +57,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       ref={ref}
       onClose={onClose}
       onClick={(e) => e.target === ref.current && onClose()}
-      className="mx-auto mt-[12vh] w-[min(94vw,560px)] rounded-lg border border-line bg-panel p-0 text-fg backdrop:bg-black/50"
+      className="mx-auto mt-[12vh] w-[min(94vw,560px)] rounded-2xl border border-line bg-overlay p-0 text-fg shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-sm"
     >
       <input
         ref={inputRef}

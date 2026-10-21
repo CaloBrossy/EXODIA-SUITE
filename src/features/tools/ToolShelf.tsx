@@ -61,16 +61,16 @@ export default function ToolShelf() {
       />
       {!online && <p className="mb-4 rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-sm">Sin conexión: estas herramientas no estarán disponibles hasta que vuelva Internet.</p>}
       {editing === 'new' && <Panel title="Nuevo acceso" className="mb-4"><ToolForm onDone={() => setEditing(null)} /></Panel>}
-      <ul className="flex flex-col gap-2">
+      <ul className="stagger flex flex-col gap-2">
         {tools.map((t, i) => (
-          <li key={t.id} className="rounded-lg border border-line bg-panel px-4 py-3">
+          <li key={t.id} data-tilt={editing === t.id ? undefined : 3} className="group tilt-card rounded-xl px-4 py-3">
             {editing === t.id ? (
               <ToolForm initial={t} onDone={() => setEditing(null)} />
             ) : (
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <a href={t.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 font-medium hover:text-accent">
-                    {t.name} <ExternalLink size={13} />
+                    {t.name} <ExternalLink size={13} className="ico-bounce" />
                   </a>
                   <p className="text-sm text-muted">{t.description}</p>
                   <p className="truncate font-mono text-xs text-muted">{t.url}</p>

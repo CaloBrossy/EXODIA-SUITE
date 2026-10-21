@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Download, Upload } from 'lucide-react'
 import { db, SCHEMA_VERSION, TABLE_NAMES, type TableName } from '@/db/db'
 import { downloadJson, exportData, importData, parseBackup, type Backup, type ImportMode } from '@/services/backup'
-import { useTheme } from '@/hooks/misc'
+import { useFx, useTheme } from '@/hooks/misc'
 import { useFeedback } from '@/components/feedback'
 import { Button, ErrorText, Kbd, PageHeader, Panel, Tabs } from '@/components/ui'
 
@@ -56,6 +56,7 @@ function StorageInfo() {
 
 export default function SettingsPage() {
   const { theme, toggle } = useTheme()
+  const { fx, setFx } = useFx()
   const { fail, notify, confirm } = useFeedback()
   const fileRef = useRef<HTMLInputElement>(null)
   const [pending, setPending] = useState<{ backup: Backup; counts: Record<TableName, number>; name: string } | null>(null)
@@ -139,8 +140,16 @@ export default function SettingsPage() {
       </Panel>
       <Panel title="Almacenamiento"><StorageInfo /></Panel>
       <Panel title="Apariencia">
-        <div className="flex items-center gap-3 text-sm">
-          Tema: <Tabs value={theme} onChange={(v) => v !== theme && toggle()} items={[{ id: 'light', label: 'Claro' }, { id: 'dark', label: 'Oscuro' }]} />
+        <div className="flex flex-col gap-3 text-sm">
+          <div className="flex items-center gap-3">
+            <span className="w-16">Tema</span>
+            <Tabs value={theme} onChange={(v) => v !== theme && toggle()} items={[{ id: 'light', label: 'Claro' }, { id: 'dark', label: 'Oscuro' }]} />
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="w-16">Efectos</span>
+            <Tabs value={fx} onChange={setFx} items={[{ id: 'full', label: 'Completos' }, { id: 'lite', label: 'Reducidos' }]} />
+          </div>
+          <p className="text-xs text-muted">«Reducidos» desactiva el desenfoque del vidrio, el fondo animado y la inclinación 3D: recomendado en equipos lentos o con batería baja. Si el sistema pide reducir el movimiento, las animaciones se desactivan solas.</p>
         </div>
       </Panel>
       <Panel title="Atajos de teclado">

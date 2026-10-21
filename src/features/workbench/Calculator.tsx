@@ -141,7 +141,7 @@ export default function Calculator() {
             </div>
           </div>
         </Panel>
-        <details className="rounded-lg border border-line bg-panel px-4 py-3 text-sm">
+        <details className="glass rounded-xl px-4 py-3 text-sm">
           <summary className="cursor-pointer font-medium">Funciones y constantes admitidas</summary>
           <div className="mt-2 grid gap-2 text-muted md:grid-cols-2">
             <p>Operadores: <code>+ − * / ^ ! mod</code> y paréntesis. Multiplicación implícita: <code>2pi</code>.</p>

@@ -43,7 +43,7 @@ export default function KnowledgeList() {
               Ajustá los filtros o registrá un concepto nuevo.
             </Empty>
           )}
-          <ul className="divide-y divide-line rounded-lg border border-line bg-panel">
+          <ul className="divide-y divide-line glass rounded-xl">
             {list.map((c) => (
               <li key={c.id}>
                 <Link to={`/knowledge/${c.id}`} className="flex flex-col gap-1 px-4 py-3 hover:bg-sunken">

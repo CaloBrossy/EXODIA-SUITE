@@ -11,18 +11,23 @@ import { PomodoroTimer } from '@/features/focus/PomodoroTimer'
 import { SessionSummary } from '@/features/focus/SessionSummary'
 import { QuestionsPanel } from '@/features/knowledge/QuestionsPanel'
 import { PriorityLabel } from '@/db/models'
+import { NAV } from '@/app/nav'
 
 export default function Dashboard() {
   const navigate = useNavigate()
   const { fail } = useFeedback()
   const data = useLiveQuery(async () => {
-    const [notes, tasks, concepts, subjects] = await Promise.all([
+    const [notes, tasks, concepts, subjects, noteCount, conceptCount] = await Promise.all([
       db.notes.orderBy('updatedAt').reverse().limit(5).toArray(),
       db.tasks.toArray(),
       db.concepts.orderBy('lastViewedAt').reverse().limit(5).toArray(),
       listSubjects(),
+      db.notes.count(),
+      db.concepts.count(),
     ])
     return {
+      noteCount,
+      conceptCount,
       notes,
       tasks: sortTasks(tasks.filter((t) => !t.done)),
       concepts: concepts.filter((c) => c.lastViewedAt),
@@ -42,12 +47,18 @@ export default function Dashboard() {
 
   const today = formatLongDate(Date.now())
 
+  const counts: Record<string, string | undefined> = {
+    '/notes': data && `${data.noteCount} notas`,
+    '/knowledge': data && `${data.conceptCount} conceptos`,
+    '/focus': data && `${data.tasks.length} pendientes`,
+  }
+
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-6">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm text-muted first-letter:uppercase">{today}</p>
-          <h1 className="text-xl font-semibold tracking-tight">¿Qué vas a investigar hoy?</h1>
+          <h1 className="text-gradient text-3xl font-semibold tracking-tight">¿Qué vas a investigar hoy?</h1>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="primary" onClick={newNote} title="Alt+N"><NotebookPen size={15} /> Nueva nota</Button>
@@ -57,8 +68,22 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="flex flex-col gap-5">
+      <ul className="stagger mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {NAV.slice(1, 7).map((n) => (
+          <li key={n.to}>
+            <Link to={n.to} data-tilt="12" className="group tilt-card flex h-full flex-col gap-3 rounded-2xl p-4">
+              <span className="icon-chip depth h-11 w-11"><n.icon size={20} className={n.anim} /></span>
+              <span className="depth-sm">
+                <span className="block text-sm font-semibold">{n.label}</span>
+                <span className="block text-xs text-muted">{counts[n.to] ?? n.hint}</span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+
+      <div className="stagger grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="stagger flex flex-col gap-5">
           <Panel title="Tareas pendientes" actions={<ButtonLink size="sm" variant="ghost" to="/focus/tasks">Ver todas</ButtonLink>} bodyClass="p-0">
             {data && data.tasks.length === 0 && (
               <div className="p-4"><Empty title="Sin tareas pendientes" action={<ButtonLink size="sm" to="/focus/tasks">Agregar tarea</ButtonLink>}>Registrá lo que tenés que estudiar o entregar.</Empty></div>
@@ -95,7 +120,7 @@ export default function Dashboard() {
           </Panel>
         </div>
 
-        <div className="flex flex-col gap-5">
+        <div className="stagger flex flex-col gap-5">
           <Panel title="Pomodoro" actions={<ButtonLink size="sm" variant="ghost" to="/focus">Abrir</ButtonLink>}>
             <PomodoroTimer compact />
           </Panel>
