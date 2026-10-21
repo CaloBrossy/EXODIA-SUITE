@@ -32,7 +32,7 @@ function Evaluator({ f }: { f: Formula }) {
   return (
     <form className="flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); run() }}>
       <p className="text-xs text-muted">
-        Evaluación numérica de <code className="font-mono">{f.evalTarget || 'resultado'} = {f.evalExpression}</code>. Ingresá los valores en las unidades indicadas: NEXUS no verifica la coherencia dimensional.
+        Evaluación numérica de <code className="font-mono">{f.evalTarget || 'resultado'} = {f.evalExpression}</code>. Ingresá los valores en las unidades indicadas: EXODIA no verifica la coherencia dimensional.
       </p>
       <div className="grid gap-2 sm:grid-cols-2">
         {vars.map((s) => {
@@ -180,7 +180,7 @@ function FormulaEditor({ id }: { id?: string }) {
       <Field label="Etiquetas (separadas por coma)"><Input value={tagText} onChange={(e) => setTagText(e.target.value)} /></Field>
       <fieldset className="flex flex-col gap-2 rounded-md border border-line p-3">
         <legend className="px-1 text-xs font-medium text-muted">Evaluación numérica (opcional)</legend>
-        <p className="text-xs text-muted">Si la completás, NEXUS podrá evaluar la fórmula con la sintaxis de la calculadora (p. ej. <code>0.5 * m * v^2</code>). Solo se admiten variables declaradas arriba cuyo símbolo sea un identificador simple (letras, dígitos y _).</p>
+        <p className="text-xs text-muted">Si la completás, EXODIA podrá evaluar la fórmula con la sintaxis de la calculadora (p. ej. <code>0.5 * m * v^2</code>). Solo se admiten variables declaradas arriba cuyo símbolo sea un identificador simple (letras, dígitos y _).</p>
         <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-2">
           <Input className="font-mono" placeholder="Resultado" value={form.evalTarget} onChange={(e) => set('evalTarget', e.target.value)} aria-label="Variable resultado" />
           <Input className="font-mono" placeholder="Expresión evaluable" value={form.evalExpression} onChange={(e) => set('evalExpression', e.target.value)} aria-label="Expresión evaluable" />

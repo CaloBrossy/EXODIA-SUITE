@@ -121,7 +121,7 @@ describe('exportación e importación', () => {
   it('rechaza archivos inválidos sin tocar los datos', async () => {
     expect(parseBackup('no json').ok).toBe(false)
     expect(parseBackup(JSON.stringify({ app: 'otra', schemaVersion: 1 })).ok).toBe(false)
-    expect(parseBackup(JSON.stringify({ app: 'nexus', schemaVersion: 99, data: {} })).ok).toBe(false)
+    expect(parseBackup(JSON.stringify({ app: 'exodia', schemaVersion: 99, data: {} })).ok).toBe(false)
     const backup = await exportData()
     const broken = structuredClone(backup) as unknown as { data: { notes: unknown[] } }
     broken.data.notes = [{ id: 'x', title: 3 }]

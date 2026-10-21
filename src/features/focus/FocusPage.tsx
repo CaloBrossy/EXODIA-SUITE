@@ -51,7 +51,7 @@ function PomodoroSettings() {
       {err && <ErrorText>{err}</ErrorText>}
       <Button type="submit" size="sm" variant="primary" className="self-start" disabled={!!err}>Guardar</Button>
       <p className="text-xs text-muted">
-        El tiempo se calcula con la hora del sistema, no con el ritmo de los temporizadores del navegador: sigue siendo exacto en segundo plano. La notificación de escritorio requiere permiso y que NEXUS esté abierto en alguna pestaña.
+        El tiempo se calcula con la hora del sistema, no con el ritmo de los temporizadores del navegador: sigue siendo exacto en segundo plano. La notificación de escritorio requiere permiso y que EXODIA esté abierto en alguna pestaña.
       </p>
     </form>
   )

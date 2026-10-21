@@ -30,7 +30,7 @@ function StorageGate({ children }: { children: React.ReactNode }) {
         <h1 className="text-lg font-semibold">No se pudo abrir el almacenamiento local</h1>
         <p className="mt-2 text-sm text-muted">{state}</p>
         <p className="mt-2 text-sm text-muted">
-          NEXUS guarda todo en IndexedDB. Verificá que el navegador no esté en modo privado estricto y que el sitio tenga permiso para almacenar datos.
+          EXODIA guarda todo en IndexedDB. Verificá que el navegador no esté en modo privado estricto y que el sitio tenga permiso para almacenar datos.
         </p>
       </div>
     )

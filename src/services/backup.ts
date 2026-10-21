@@ -15,7 +15,7 @@ import {
 } from '@/db/models'
 import { guard } from './errors'
 
-export const BACKUP_APP_ID = 'nexus'
+export const BACKUP_APP_ID = 'exodia'
 
 const DataSchema = z.object({
   notes: z.array(NoteSchema),
@@ -68,7 +68,7 @@ export function parseBackup(text: string): ParseResult {
   }
   const header = z.object({ app: z.string(), schemaVersion: z.number() }).safeParse(raw)
   if (!header.success || header.data.app !== BACKUP_APP_ID) {
-    return { ok: false, error: 'El archivo no es una exportación de NEXUS.' }
+    return { ok: false, error: 'El archivo no es una exportación de EXODIA.' }
   }
   if (header.data.schemaVersion > SCHEMA_VERSION) {
     return { ok: false, error: `La exportación usa el esquema v${header.data.schemaVersion}, más nuevo que el de esta versión (v${SCHEMA_VERSION}).` }

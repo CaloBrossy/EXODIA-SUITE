@@ -20,7 +20,7 @@ const KEYS: { label: string; insert: string; title?: string }[][] = [
 export default function Calculator() {
   const { fail, notify } = useFeedback()
   const [expr, setExpr] = useState('')
-  const [angle, setAngle] = useState<AngleMode>(() => (localStorage.getItem('nexus.angle') as AngleMode | null) ?? 'rad')
+  const [angle, setAngle] = useState<AngleMode>(() => (localStorage.getItem('exodia.angle') as AngleMode | null) ?? 'rad')
   const [fmt, setFmt] = useState<NumberFormat>('auto')
   const [precision, setPrecision] = useState(12)
   const [committed, setCommitted] = useState<{ input: string; value: CalcValue } | null>(null)
@@ -90,7 +90,7 @@ export default function Calculator() {
         <Panel>
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <Tabs value={angle} onChange={(v) => { setAngle(v); localStorage.setItem('nexus.angle', v) }} items={[{ id: 'rad', label: 'RAD' }, { id: 'deg', label: 'DEG' }]} />
+              <Tabs value={angle} onChange={(v) => { setAngle(v); localStorage.setItem('exodia.angle', v) }} items={[{ id: 'rad', label: 'RAD' }, { id: 'deg', label: 'DEG' }]} />
               <Select value={fmt} onChange={(e) => setFmt(e.target.value as NumberFormat)} className="h-8 w-40" aria-label="Formato">
                 <option value="auto">Formato automático</option>
                 <option value="scientific">Científica</option>

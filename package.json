@@ -1,8 +1,8 @@
 {
-  "name": "nexus",
+  "name": "exodia",
   "private": true,
   "version": "0.1.0",
-  "description": "NEXUS — laboratorio personal de conocimiento, ciencia y productividad (local-first).",
+  "description": "EXODIA — laboratorio personal de conocimiento, ciencia y productividad (local-first).",
   "type": "module",
   "scripts": {
     "dev": "vite",

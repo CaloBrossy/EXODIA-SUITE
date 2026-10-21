@@ -64,7 +64,7 @@ export const FormulaSchema = z.object({
   evalExpression: z.string().max(2000),
   /** Variable que calcula evalExpression (p. ej. "F"). */
   evalTarget: z.string().max(40),
-  /** Calculadora dedicada de NEXUS que implementa esta fórmula (ruta interna). */
+  /** Calculadora dedicada de EXODIA que implementa esta fórmula (ruta interna). */
   toolPath: z.string().max(200).optional(),
   seed: z.boolean().optional(),
   createdAt: ts,

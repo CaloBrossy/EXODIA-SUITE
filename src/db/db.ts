@@ -14,11 +14,11 @@ import type {
 } from './models'
 import { seedDatabase } from './seed'
 
-export const DB_NAME = 'nexus'
+export const DB_NAME = 'exodia'
 /** Versión lógica del esquema; se incluye en las exportaciones JSON. */
 export const SCHEMA_VERSION = 1
 
-export class NexusDB extends Dexie {
+export class ExodiaDB extends Dexie {
   notes!: EntityTable<Note, 'id'>
   concepts!: EntityTable<Concept, 'id'>
   formulas!: EntityTable<Formula, 'id'>
@@ -52,7 +52,7 @@ export class NexusDB extends Dexie {
   }
 }
 
-export const db = new NexusDB()
+export const db = new ExodiaDB()
 
 export const TABLE_NAMES = [
   'notes',

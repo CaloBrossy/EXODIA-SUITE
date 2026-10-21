@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 export type Theme = 'light' | 'dark'
-const THEME_KEY = 'nexus.theme'
+const THEME_KEY = 'exodia.theme'
 
 const themeListeners = new Set<() => void>()
 const readTheme = (): Theme => (document.documentElement.classList.contains('dark') ? 'dark' : 'light')

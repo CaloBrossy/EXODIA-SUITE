@@ -66,7 +66,7 @@ export default function SettingsPage() {
   const doExport = async () => {
     try {
       const data = await exportData()
-      downloadJson(data, `nexus-${new Date().toISOString().slice(0, 10)}.json`)
+      downloadJson(data, `exodia-${new Date().toISOString().slice(0, 10)}.json`)
       notify('Exportación descargada.', 'ok')
     } catch (e) {
       fail(e)
@@ -145,7 +145,7 @@ export default function SettingsPage() {
       </Panel>
       <Panel title="Atajos de teclado">
         <ul className="grid gap-1.5 text-sm sm:grid-cols-2">
-          <li><Kbd>Ctrl K</Kbd> Buscar en todo NEXUS</li>
+          <li><Kbd>Ctrl K</Kbd> Buscar en todo EXODIA</li>
           <li><Kbd>Alt N</Kbd> Nueva nota</li>
           <li><Kbd>Alt 1…8</Kbd> Ir a cada módulo</li>
           <li><Kbd>Ctrl B</Kbd> / <Kbd>Ctrl I</Kbd> Negrita / cursiva en notas</li>

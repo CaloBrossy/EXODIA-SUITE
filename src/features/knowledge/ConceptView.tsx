@@ -103,7 +103,7 @@ export default function ConceptView() {
           <Section title="Formalización matemática" source={c.formalism} />
           <Section title="Ejemplos" source={c.examples} />
           <Section title="Observaciones" source={c.observations} />
-          <p className="text-xs text-muted">Actualizado {formatDateTime(c.updatedAt)}{c.seed && ' · contenido inicial de NEXUS, editable'}</p>
+          <p className="text-xs text-muted">Actualizado {formatDateTime(c.updatedAt)}{c.seed && ' · contenido inicial de EXODIA, editable'}</p>
         </article>
 
         <aside className="flex flex-col gap-3">

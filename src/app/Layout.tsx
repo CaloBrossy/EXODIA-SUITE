@@ -60,7 +60,7 @@ export function Layout() {
       >
         <div className="flex items-center gap-2 px-4 py-4">
           <LabIcon size={18} className="text-accent" />
-          <span className="font-mono text-sm font-semibold tracking-[0.2em]">NEXUS</span>
+          <span className="font-mono text-sm font-semibold tracking-[0.2em]">EXODIA</span>
         </div>
         <button
           onClick={() => setPalette(true)}
@@ -105,7 +105,7 @@ export function Layout() {
           <button onClick={() => setMenu(true)} aria-label="Abrir menú" className="rounded p-1.5 hover:bg-sunken">
             <Menu size={18} />
           </button>
-          <span className="font-mono text-sm font-semibold tracking-[0.2em]">NEXUS</span>
+          <span className="font-mono text-sm font-semibold tracking-[0.2em]">EXODIA</span>
           <button onClick={() => setPalette(true)} aria-label="Buscar" className="ml-auto rounded p-1.5 hover:bg-sunken">
             <Search size={18} />
           </button>

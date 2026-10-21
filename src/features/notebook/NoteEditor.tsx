@@ -19,7 +19,7 @@ interface Draft {
   title: string
   content: string
 }
-const draftKey = (id: string) => `nexus.draft.${id}`
+const draftKey = (id: string) => `exodia.draft.${id}`
 
 const STATUS_TEXT: Record<SaveStatus, string> = {
   saved: 'Guardado',
@@ -72,7 +72,7 @@ function EditorBody({ note, recovered }: { note: Note; recovered: boolean }) {
   const live = useLiveQuery(() => db.notes.get(note.id), [note.id])
   const subjects = useLiveQuery(() => listSubjects(), [])
   const [draft, setDraft] = useState<Draft>({ title: note.title, content: note.content })
-  const [mode, setMode] = useState<Mode>(() => (localStorage.getItem('nexus.editorMode') as Mode | null) ?? 'split')
+  const [mode, setMode] = useState<Mode>(() => (localStorage.getItem('exodia.editorMode') as Mode | null) ?? 'split')
   const [tagText, setTagText] = useState(note.tags.join(', '))
   const ta = useRef<HTMLTextAreaElement>(null)
 
@@ -81,7 +81,7 @@ function EditorBody({ note, recovered }: { note: Note; recovered: boolean }) {
     notify('Se recuperó un borrador local más reciente que la versión guardada.', 'info')
     setDraft((d) => ({ ...d }))
   }, [recovered, notify])
-  useEffect(() => localStorage.setItem('nexus.editorMode', mode), [mode])
+  useEffect(() => localStorage.setItem('exodia.editorMode', mode), [mode])
 
   const save = useCallback(
     async (d: Draft) => {

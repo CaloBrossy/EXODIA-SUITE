@@ -42,7 +42,7 @@ export function PomodoroWatcher() {
           notify(msg, 'ok')
           beep()
           if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.visibilityState !== 'visible') {
-            new Notification('NEXUS — Pomodoro', { body: msg, icon: '/icons/icon-192.png', tag: 'nexus-pomodoro' })
+            new Notification('EXODIA — Pomodoro', { body: msg, icon: '/icons/icon-192.png', tag: 'exodia-pomodoro' })
           }
         }
       } catch (e) {

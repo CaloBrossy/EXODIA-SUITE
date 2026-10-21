@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => ({
             injectRegister: false,
             includeAssets: ['favicon.svg'],
             manifest: {
-              name: 'NEXUS — Knowledge & Science Lab',
-              short_name: 'NEXUS',
+              name: 'EXODIA — Knowledge & Science Lab',
+              short_name: 'EXODIA',
               description: 'Laboratorio personal de conocimiento, ciencia, matemática y productividad.',
               lang: 'es',
               start_url: '/',

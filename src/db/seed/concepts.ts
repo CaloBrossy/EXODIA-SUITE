@@ -207,7 +207,7 @@ Fórmula de Euler: $e^{i\theta} = \cos\theta + i\sin\theta$, por lo que $z = |z|
 Identidad de Euler: $e^{i\pi} + 1 = 0$.`,
     examples: r`- $(2+3i)(1-i) = 5 + i$
 - $|3+4i| = 5$
-- $\sqrt{-4} = 2i$ (raíz principal). La calculadora científica de NEXUS admite complejos: probá sqrt(-4) o (2+3i)*(1-i).`,
+- $\sqrt{-4} = 2i$ (raíz principal). La calculadora científica de EXODIA admite complejos: probá sqrt(-4) o (2+3i)*(1-i).`,
     observations: '',
     relatedIds: ['c-vectores', 'c-ohm'],
   },
