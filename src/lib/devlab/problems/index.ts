@@ -7,7 +7,8 @@ import { linearKind } from './linear'
 import { searchKind } from './search'
 import { statsKind } from './stats'
 import { vectorsKind } from './vectors'
-import { unsupported } from './shared'
+import { needsClarification, unsupported } from './shared'
+import { analyzeStatement, planFromReading } from '../understanding'
 
 export const KINDS: KindDef[] = [expressionKind, linearKind, geometryKind, statsKind, classifyKind, searchKind, iterationKind, vectorsKind]
 
@@ -31,6 +32,16 @@ export function solve(text: string, kind: KindId | 'auto', strategy?: string): S
   const t = text.trim()
   if (!t) return unsupported('expression', 'Problema vacío', 'Escribí un enunciado o elegí un ejemplo.')
   const def = kind === 'auto' ? detectKind(t) : kindById(kind)
+  const reading = analyzeStatement(t)
+  const plan = planFromReading(reading, kind, def?.id ?? null)
+  if (plan.type === 'unsupported') return unsupported('expression', 'Problema no soportado', plan.reason, { ambiguities: [], assumptions: [`Motivo: aparece «${plan.evidence}».`] })
+  if (plan.type === 'clarify')
+    return needsClarification(plan.kind, 'Hace falta una aclaración', { summary: reading.output ? `Calcular la ${reading.output}.` : 'Interpretar el enunciado.', ambiguities: reading.ambiguities, constraints: reading.constraints }, reading.clarifications)
+  if (plan.type === 'rewrite') {
+    const s = kindById(plan.kind)!.build(plan.text, strategy)
+    s.analysis.assumptions.unshift(`Se interpretó como «${plan.text}».`, ...plan.notes.map((x) => `${x}.`))
+    return s
+  }
   if (!def)
     return unsupported(
       'expression',

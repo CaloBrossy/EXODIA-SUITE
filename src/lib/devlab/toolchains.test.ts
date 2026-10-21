@@ -10,7 +10,8 @@ import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { describe, expect, it } from 'vitest'
 import { CODE_LANGS, generateCode, type CodeLang } from './emit/code'
-import { allSamples } from './problems'
+import { allSamples, solve } from './problems'
+import { CHANGED } from './__fixtures__/changed'
 import type { TestCase } from './types'
 
 const run = promisify(execFile)
@@ -49,7 +50,11 @@ function compare(output: string, tests: TestCase[]): string[] {
   return problems
 }
 
-const samples = allSamples().filter((s) => s.solution.status === 'ok' && s.solution.program)
+const improved = [...CHANGED].flatMap((text) => {
+  const base = solve(text, 'auto')
+  return (base.strategies.length ? base.strategies : [{ id: base.strategy }]).map((st) => ({ text, kind: base.kind, strategy: st.id, solution: solve(text, 'auto', st.id) }))
+})
+const samples = [...allSamples(), ...improved].filter((s) => s.solution.status === 'ok' && s.solution.program)
 
 async function runLang(lang: CodeLang, root: string): Promise<string[]> {
   const failures: string[] = []
@@ -175,6 +180,7 @@ describe.skipIf(!ENABLED)('Dev Lab: traducciones compiladas y ejecutadas', () =>
   }
   it('hay muestras para verificar', () => {
     expect(samples.length).toBeGreaterThan(5)
+    expect(improved.filter((s) => s.solution.status === 'ok').length).toBeGreaterThan(10)
   })
   for (const lang of CODE_LANGS) {
     it(`${lang}: compila, ejecuta y coincide con los resultados esperados`, async () => {
