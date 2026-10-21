@@ -1,0 +1,147 @@
+@import 'tailwindcss';
+@import 'katex/dist/katex.min.css';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, ui-monospace, monospace;
+  --color-bg: var(--nx-bg);
+  --color-panel: var(--nx-panel);
+  --color-sunken: var(--nx-sunken);
+  --color-fg: var(--nx-fg);
+  --color-muted: var(--nx-muted);
+  --color-line: var(--nx-line);
+  --color-accent: var(--nx-accent);
+  --color-accent-fg: var(--nx-accent-fg);
+  --color-danger: var(--nx-danger);
+  --color-ok: var(--nx-ok);
+}
+
+:root {
+  --nx-bg: #f6f5f1;
+  --nx-panel: #ffffff;
+  --nx-sunken: #eeece6;
+  --nx-fg: #1c1b19;
+  --nx-muted: #6b6760;
+  --nx-line: #dedad1;
+  --nx-accent: #a66a00;
+  --nx-accent-fg: #ffffff;
+  --nx-danger: #b42318;
+  --nx-ok: #2e7d4f;
+  color-scheme: light;
+}
+
+.dark {
+  --nx-bg: #111113;
+  --nx-panel: #18181b;
+  --nx-sunken: #0c0c0e;
+  --nx-fg: #e7e5e0;
+  --nx-muted: #8f8c85;
+  --nx-line: #2a2a2f;
+  --nx-accent: #e8b04b;
+  --nx-accent-fg: #17130a;
+  --nx-danger: #f0776c;
+  --nx-ok: #6cc690;
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  @apply bg-bg text-fg font-sans antialiased;
+  font-size: 14.5px;
+}
+::selection {
+  background: color-mix(in srgb, var(--nx-accent) 35%, transparent);
+}
+:focus-visible {
+  outline: 2px solid var(--nx-accent);
+  outline-offset: 2px;
+}
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Contenido Markdown de notas y artículos */
+.prose-nx {
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.prose-nx > * + * {
+  margin-top: 0.7em;
+}
+.prose-nx h1 {
+  font-size: 1.45em;
+  font-weight: 650;
+  margin-top: 1.1em;
+}
+.prose-nx h2 {
+  font-size: 1.22em;
+  font-weight: 650;
+  margin-top: 1em;
+}
+.prose-nx h3 {
+  font-size: 1.05em;
+  font-weight: 650;
+  margin-top: 0.9em;
+}
+.prose-nx ul {
+  list-style: disc;
+  padding-left: 1.4em;
+}
+.prose-nx ol {
+  list-style: decimal;
+  padding-left: 1.4em;
+}
+.prose-nx li + li {
+  margin-top: 0.25em;
+}
+.prose-nx a {
+  color: var(--nx-accent);
+  text-decoration: underline;
+}
+.prose-nx code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--nx-sunken);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+.prose-nx pre {
+  background: var(--nx-sunken);
+  padding: 0.8em 1em;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+.prose-nx pre code {
+  background: none;
+  padding: 0;
+}
+.prose-nx blockquote {
+  border-left: 3px solid var(--nx-accent);
+  padding-left: 0.9em;
+  color: var(--nx-muted);
+}
+.prose-nx table {
+  border-collapse: collapse;
+}
+.prose-nx th,
+.prose-nx td {
+  border: 1px solid var(--nx-line);
+  padding: 0.3em 0.6em;
+}
+.prose-nx input[type='checkbox'] {
+  margin-right: 0.4em;
+}
+.prose-nx .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.3em 0;
+}
+.katex {
+  font-size: 1.08em;
+}
