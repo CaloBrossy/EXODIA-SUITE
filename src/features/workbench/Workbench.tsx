@@ -3,21 +3,22 @@ import { NavLink, Navigate, useParams } from 'react-router-dom'
 import { cx } from '@/components/ui'
 
 const Calculator = lazy(() => import('./Calculator'))
-const EntropyLab = lazy(() => import('./EntropyLab'))
+const PhysicsLab = lazy(() => import('./PhysicsLab'))
 const UnitConverter = lazy(() => import('./UnitConverter'))
 const MathTools = lazy(() => import('./MathTools'))
 const Formulas = lazy(() => import('./Formulas'))
 
 const TOOLS = [
   { id: 'calculator', label: 'Calculadora', el: Calculator },
-  { id: 'entropy', label: 'Entropía', el: EntropyLab },
-  { id: 'units', label: 'Unidades', el: UnitConverter },
+  { id: 'physics', label: 'Física', el: PhysicsLab },
   { id: 'math', label: 'Matemática', el: MathTools },
+  { id: 'units', label: 'Unidades', el: UnitConverter },
   { id: 'formulas', label: 'Fórmulas', el: Formulas },
 ] as const
 
 export default function Workbench() {
   const { tool } = useParams()
+  if (tool === 'entropy') return <Navigate to="/workbench/physics?t=entropy" replace />
   const current = TOOLS.find((t) => t.id === tool)
   if (!current) return <Navigate to="/workbench/calculator" replace />
   const El = current.el

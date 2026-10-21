@@ -61,7 +61,7 @@ Propiedades:
 - Dado de 6 caras justo: $H = \log_2 6 \approx 2.585$ bits.
 - Moneda cargada con $p = 0.9$: $H \approx 0.469$ bits.
 - Landauer a 300 K: $k_B T \ln 2 \approx 2.87\times10^{-21}$ J por bit borrado.`,
-    observations: 'Probá distribuciones en Workbench → Entropía → Shannon.',
+    observations: 'Probá distribuciones en Workbench → Matemática → Información (Shannon).',
     relatedIds: ['c-entropia-termo', 'c-probabilidad'],
   },
   {
@@ -81,7 +81,7 @@ Son válidas para velocidades mucho menores que la de la luz y escalas donde los
 Unidad: $1\ \mathrm{N} = 1\ \mathrm{kg\,m/s^2}$. Peso cerca de la superficie terrestre: $P = mg$, con $g \approx 9.81\ \mathrm{m/s^2}$ (valor estándar $9.80665$).`,
     examples: r`- Una fuerza neta de 10 N sobre una masa de 2 kg produce $a = 5\ \mathrm{m/s^2}$.
 - Un libro sobre una mesa: el par acción-reacción del peso es la atracción gravitatoria que el libro ejerce sobre la Tierra, **no** la normal de la mesa.`,
-    observations: '',
+    observations: 'Simulá un plano inclinado en Workbench → Física → Dinámica.',
     relatedIds: ['c-momento', 'c-energia', 'c-vectores', 'c-derivadas-integrales'],
   },
   {
@@ -122,7 +122,7 @@ Si la fuerza externa neta sobre un sistema es cero, su momento total se conserva
 
 Unidad: $\mathrm{kg\,m/s} = \mathrm{N\,s}$. A velocidades relativistas: $\vec p = \gamma m \vec v$.`,
     examples: r`- Choque perfectamente inelástico: un auto de 1000 kg a 20 m/s choca y queda unido a otro de 1500 kg en reposo. $v_f = \dfrac{1000\cdot 20}{2500} = 8\ \mathrm{m/s}$. La energía cinética **no** se conserva.`,
-    observations: '',
+    observations: 'Choques elásticos e inelásticos en Workbench → Física → Energía y choques.',
     relatedIds: ['c-newton', 'c-energia', 'c-vectores'],
   },
   {
@@ -251,7 +251,7 @@ $(a\times10^m)(b\times10^n) = ab\times10^{m+n}$`,
     examples: r`- $0.000470\ \mathrm{F} = 4.70\times10^{-4}\ \mathrm{F} = 470\ \mu\mathrm{F}$ (tres cifras significativas).
 - Velocidad de la luz: $c = 299\,792\,458\ \mathrm{m/s} \approx 3.00\times10^{8}\ \mathrm{m/s}$ (valor exacto por definición).
 - Constante de Avogadro: $N_A = 6.02214076\times10^{23}\ \mathrm{mol^{-1}}$ (exacta en el SI desde 2019).`,
-    observations: 'Herramienta en Workbench → Matemática → Notación.',
+    observations: 'Herramienta en Workbench → Matemática → Porcentajes y notación.',
     relatedIds: ['c-atomo'],
   },
   {
@@ -273,7 +273,7 @@ Carga elemental: $e = 1.602176634\times10^{-19}\ \mathrm{C}$ (exacta). Masas apr
 Niveles del hidrógeno (modelo de Bohr / Schrödinger): $E_n \approx -\dfrac{13.6\ \mathrm{eV}}{n^2}$.`,
     examples: r`- Carbono-12: $Z = 6$, $A = 12$, $N = 6$. Carbono-14: $N = 8$.
 - Configuración electrónica del oxígeno ($Z=8$): $1s^2\,2s^2\,2p^4$.`,
-    observations: '',
+    observations: 'Transiciones del hidrógeno y modelos atómicos en Workbench → Física → Átomo.',
     relatedIds: ['c-particulas', 'c-notacion-cientifica'],
   },
   {
@@ -296,7 +296,7 @@ Límites del modelo: no incluye la gravedad, y en su forma mínima no explica la
 
 Protón: $\tfrac23+\tfrac23-\tfrac13 = +1$. Neutrón: $\tfrac23-\tfrac13-\tfrac13 = 0$.`,
     examples: r`- En la desintegración beta menos, un quark $d$ de un neutrón se convierte en $u$ emitiendo un $W^-$ virtual, que decae en un electrón y un antineutrino electrónico: $n \to p + e^- + \bar\nu_e$.`,
-    observations: '',
+    observations: 'Tabla de quarks, leptones y bosones en Workbench → Física → Partículas.',
     relatedIds: ['c-atomo'],
   },
   {
@@ -312,7 +312,7 @@ La potencia disipada en un elemento es $P = VI$; en una resistencia puede escrib
     formalism: r`$$V = IR, \qquad P = VI = I^2R = \frac{V^2}{R}$$
 Unidades: $1\ \Omega = 1\ \mathrm{V/A}$, $1\ \mathrm{W} = 1\ \mathrm{V\,A}$.`,
     examples: r`- Una resistencia de 1 kΩ con 5 V: $I = 5\ \mathrm{mA}$, $P = 25\ \mathrm{mW}$.`,
-    observations: '',
+    observations: 'Ley de Ohm y resistencias equivalentes en Workbench → Física → Circuitos.',
     relatedIds: ['c-energia', 'c-complejos'],
   },
 ]

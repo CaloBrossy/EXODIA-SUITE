@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { ShannonTool } from './Shannon'
 import {
   add,
   angleBetween,
@@ -210,23 +212,28 @@ function PercentSciTool() {
   )
 }
 
-type Tool = 'vectors' | 'angles' | 'linear' | 'percent'
+const TOOLS = [
+  { id: 'vectors', label: 'Vectores' },
+  { id: 'angles', label: 'Grados ↔ radianes' },
+  { id: 'linear', label: 'Ecuaciones lineales' },
+  { id: 'percent', label: 'Porcentajes y notación' },
+  { id: 'shannon', label: 'Información (Shannon)' },
+] as const
+type Tool = (typeof TOOLS)[number]['id']
 
 export default function MathTools() {
-  const [tool, setTool] = useState<Tool>('vectors')
+  const [params, setParams] = useSearchParams()
+  const t = params.get('t')
+  const tool: Tool = TOOLS.some((x) => x.id === t) ? (t as Tool) : 'vectors'
   return (
     <div className="flex flex-col gap-4">
-      <Tabs value={tool} onChange={setTool} items={[
-        { id: 'vectors', label: 'Vectores' },
-        { id: 'angles', label: 'Grados ↔ radianes' },
-        { id: 'linear', label: 'Ecuaciones lineales' },
-        { id: 'percent', label: 'Porcentajes y notación' },
-      ]} />
+      <Tabs value={tool} onChange={(id) => setParams({ t: id }, { replace: true })} items={[...TOOLS]} />
       <Panel>
         {tool === 'vectors' && <VectorTool />}
         {tool === 'angles' && <AngleTool />}
         {tool === 'linear' && <LinearTool />}
         {tool === 'percent' && <PercentSciTool />}
+        {tool === 'shannon' && <ShannonTool />}
       </Panel>
     </div>
   )

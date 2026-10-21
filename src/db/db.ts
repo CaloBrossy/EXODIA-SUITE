@@ -13,10 +13,11 @@ import type {
   ToolLink,
 } from './models'
 import { seedDatabase } from './seed'
+import { migrateConceptV2, migrateFormulaV2 } from './migrations'
 
 export const DB_NAME = 'exodia'
 /** Versión lógica del esquema; se incluye en las exportaciones JSON. */
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 export class ExodiaDB extends Dexie {
   notes!: EntityTable<Note, 'id'>
@@ -47,6 +48,10 @@ export class ExodiaDB extends Dexie {
       sketches: 'id, updatedAt',
       tools: 'id, order',
       kv: 'key',
+    })
+    this.version(2).upgrade(async (tx) => {
+      await tx.table('formulas').toCollection().modify((f: Formula) => Object.assign(f, migrateFormulaV2(f)))
+      await tx.table('concepts').toCollection().modify((c: Concept) => Object.assign(c, migrateConceptV2(c)))
     })
     this.on('populate', (tx) => seedDatabase(tx))
   }

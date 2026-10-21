@@ -22,7 +22,7 @@ export const SEED_FORMULAS: SeedFormula[] = [
     conceptIds: ['c-entropia-termo'],
     evalExpression: '',
     evalTarget: '',
-    toolPath: '/workbench/entropy',
+    toolPath: '/workbench/physics?t=entropy',
   },
   {
     id: 'f-entropia-gas-ideal',
@@ -44,7 +44,7 @@ export const SEED_FORMULAS: SeedFormula[] = [
     conceptIds: ['c-entropia-termo'],
     evalExpression: '',
     evalTarget: '',
-    toolPath: '/workbench/entropy',
+    toolPath: '/workbench/physics?t=entropy',
   },
   {
     id: 'f-shannon',
@@ -59,7 +59,7 @@ export const SEED_FORMULAS: SeedFormula[] = [
     conceptIds: ['c-entropia-shannon'],
     evalExpression: '',
     evalTarget: '',
-    toolPath: '/workbench/entropy',
+    toolPath: '/workbench/math?t=shannon',
   },
   {
     id: 'f-boltzmann',

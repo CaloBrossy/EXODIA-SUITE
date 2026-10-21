@@ -1,24 +1,22 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   EntropyInputError,
   heatingEntropy,
   idealGasEntropy,
   isothermalReversible,
-  parseProbabilities,
   R_GAS,
-  shannonEntropy,
   toKelvin,
   type EntropyResult,
   type TempUnit,
 } from '@/lib/math/entropy'
 import { Tex } from '@/components/Markdown'
-import { ErrorText, Field, Panel, Select, Tabs, Textarea, Button } from '@/components/ui'
+import { ErrorText, Field, Select, Tabs } from '@/components/ui'
 import { NumField, parseNum, ResultBox, SaveCalcButton } from './shared'
 
-type Mode = 'isothermal' | 'gas' | 'heating' | 'shannon'
+type Mode = 'isothermal' | 'gas' | 'heating'
 
-function TempUnitSelect({ value, onChange }: { value: TempUnit; onChange: (u: TempUnit) => void }) {
+export function TempUnitSelect({ value, onChange }: { value: TempUnit; onChange: (u: TempUnit) => void }) {
   return (
     <Select value={value} onChange={(e) => onChange(e.target.value as TempUnit)} className="h-9 w-20" aria-label="Unidad de temperatura">
       <option value="K">K</option>
@@ -149,59 +147,7 @@ function Heating() {
   )
 }
 
-function Shannon() {
-  const [text, setText] = useState('0.5, 0.25, 0.125, 0.125')
-  const { result, error } = useMemo(() => compute(() => shannonEntropy(parseProbabilities(text))), [text])
-  const uniform = (n: number) => setText(Array.from({ length: n }, () => `1/${n}`).join(', '))
-  return (
-    <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <div className="flex flex-col gap-3">
-        <Tex block expr={String.raw`H(X) = -\sum_i p_i \log_2 p_i`} />
-        <p className="text-sm text-muted">Medida informacional (bits), no termodinámica. Ingresá probabilidades separadas por coma, espacio o punto y coma; se admiten fracciones como 1/3.</p>
-        <Field label="Probabilidades p₁, p₂, …" hint="Cada una en [0, 1]; deben sumar 1 (tolerancia 10⁻⁶).">
-          <Textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} className="font-mono" />
-        </Field>
-        <div className="flex flex-wrap gap-1.5">
-          <Button size="sm" onClick={() => setText('0.5, 0.5')}>Moneda justa</Button>
-          <Button size="sm" onClick={() => setText('0.9, 0.1')}>Moneda cargada</Button>
-          <Button size="sm" onClick={() => uniform(6)}>Dado</Button>
-          <Button size="sm" onClick={() => uniform(26)}>26 letras uniformes</Button>
-        </div>
-      </div>
-      <div className="flex flex-col gap-3">
-        {error ? (
-          <ErrorText>{error}</ErrorText>
-        ) : (
-          result && (
-            <>
-              <ResultBox>
-                <p className="text-xs text-muted">Entropía</p>
-                <p className="font-mono text-2xl tabular">H = {result.bits.toFixed(6)} <span className="text-base text-muted">bits</span></p>
-                <p className="font-mono text-xs text-muted">= {result.nats.toFixed(6)} nats · máximo log₂ {result.terms.length} = {result.maxBits.toFixed(4)} bits</p>
-              </ResultBox>
-              <p className="text-sm">{result.interpretation}</p>
-              <div>
-                <h3 className="mb-1 text-xs font-semibold text-muted uppercase">Contribución −pᵢ log₂ pᵢ</h3>
-                <ul className="flex flex-col gap-1">
-                  {result.terms.slice(0, 40).map((t, i) => (
-                    <li key={i} className="grid grid-cols-[4rem_1fr_5rem] items-center gap-2 font-mono text-xs">
-                      <span className="text-muted">p{i + 1}={Number(t.p.toPrecision(4))}</span>
-                      <span className="h-2 rounded bg-accent/70" style={{ width: `${result.bits > 0 ? (t.contribution / result.bits) * 100 : 0}%` }} />
-                      <span className="text-right">{t.contribution.toFixed(4)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <SaveCalcButton kind="entropy" input={`H(${text.slice(0, 120)})`} result={`${result.bits.toFixed(6)} bits`} />
-            </>
-          )
-        )}
-      </div>
-    </div>
-  )
-}
-
-export default function EntropyLab() {
+export function EntropyTool() {
   const [mode, setMode] = useState<Mode>('isothermal')
   return (
     <div className="flex flex-col gap-4">
@@ -213,19 +159,15 @@ export default function EntropyLab() {
             { id: 'isothermal', label: 'Isotérmico reversible' },
             { id: 'gas', label: 'Gas ideal' },
             { id: 'heating', label: 'Calentamiento' },
-            { id: 'shannon', label: 'Shannon (información)' },
           ]}
         />
         <span className="text-xs text-muted">
-          Ver <Link className="text-accent" to="/knowledge/c-entropia-termo">entropía termodinámica</Link> y <Link className="text-accent" to="/knowledge/c-entropia-shannon">entropía de Shannon</Link>.
+          Ver <Link className="text-accent" to="/knowledge/c-entropia-termo">entropía termodinámica</Link>. La entropía de Shannon está en <Link className="text-accent" to="/workbench/math?t=shannon">Matemática</Link>.
         </span>
       </div>
-      <Panel title={mode === 'shannon' ? 'Modelo informacional' : 'Modelo físico (termodinámica)'}>
-        {mode === 'isothermal' && <Isothermal />}
-        {mode === 'gas' && <IdealGas />}
-        {mode === 'heating' && <Heating />}
-        {mode === 'shannon' && <Shannon />}
-      </Panel>
+      {mode === 'isothermal' && <Isothermal />}
+      {mode === 'gas' && <IdealGas />}
+      {mode === 'heating' && <Heating />}
     </div>
   )
 }

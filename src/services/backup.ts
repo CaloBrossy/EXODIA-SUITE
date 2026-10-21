@@ -13,6 +13,7 @@ import {
   TaskSchema,
   ToolLinkSchema,
 } from '@/db/models'
+import { migrateConceptV2, migrateFormulaV2 } from '@/db/migrations'
 import { guard } from './errors'
 
 export const BACKUP_APP_ID = 'exodia'
@@ -55,8 +56,18 @@ export type ParseResult = { ok: true; backup: Backup; counts: Record<TableName, 
 
 /** Migra exportaciones de versiones anteriores del esquema al formato actual. */
 function migrateBackup(raw: unknown): unknown {
-  // SCHEMA_VERSION 1 es la primera versión: todavía no hay migraciones que aplicar.
-  return raw
+  const b = raw as { schemaVersion: number; data?: { formulas?: unknown; concepts?: unknown } }
+  if (b.schemaVersion < 2 && b.data) {
+    type Rec = { id: string }
+    const map = (xs: unknown, fn: (x: Rec) => Rec) => (Array.isArray(xs) ? xs.map((x) => (x && typeof x === 'object' ? fn(x as Rec) : x)) : xs)
+    b.data = {
+      ...b.data,
+      formulas: map(b.data.formulas, (f) => migrateFormulaV2(f)),
+      concepts: map(b.data.concepts, (c) => migrateConceptV2(c)),
+    }
+    b.schemaVersion = 2
+  }
+  return b
 }
 
 export function parseBackup(text: string): ParseResult {
