@@ -7,7 +7,7 @@ type Variant = 'primary' | 'outline' | 'ghost' | 'danger'
 type Size = 'sm' | 'md' | 'icon'
 
 const variants: Record<Variant, string> = {
-  primary: 'btn-grad hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]',
+  primary: 'btn-grad hover:-translate-y-px active:translate-y-0',
   outline: 'border border-line bg-field hover:bg-sunken hover:border-accent/40 hover:-translate-y-px active:translate-y-0',
   ghost: 'hover:bg-sunken text-fg',
   danger: 'border border-danger/40 text-danger hover:bg-danger/10 hover:-translate-y-px',
@@ -69,7 +69,7 @@ export function Panel({ title, actions, children, className, bodyClass }: { titl
     <section className={cx('glass rounded-2xl', className)}>
       {(title || actions) && (
         <header className="flex items-center justify-between gap-2 border-b border-line px-4 py-2.5">
-          <h2 className="flex items-center gap-2 text-[12.5px] font-semibold tracking-wider text-muted uppercase"><span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_10px_var(--nx-accent)]" />{title}</h2>
+          <h2 className="flex items-center gap-2 font-mono text-[11px] font-medium tracking-[0.18em] text-muted uppercase"><span className="h-1 w-1 rounded-full bg-accent" />{title}</h2>
           <div className="flex items-center gap-1">{actions}</div>
         </header>
       )}
