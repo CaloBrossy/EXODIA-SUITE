@@ -20,7 +20,7 @@ function Brand() {
       <ObservatoryCore size={30} />
       <div className="leading-none">
         <span className="block font-mono text-[14px] font-semibold tracking-[0.32em] text-fg">EXODIA</span>
-        <span className="mt-1 block font-mono text-[9.5px] tracking-[0.18em] text-muted uppercase">Observatorio personal</span>
+        <span className="mt-1 block font-mono text-[9.5px] tracking-[0.18em] text-muted uppercase">Éxodo personal</span>
       </div>
     </div>
   )
