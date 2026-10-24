@@ -14,6 +14,7 @@ import {
   mul,
   ne,
   neg,
+  or,
   pow,
   ref,
   ret,
@@ -32,13 +33,14 @@ import { RefError, tc, uniqueTests } from './testing'
 
 const KIND = 'iteration' as const
 
-type Variant = 'factorial' | 'suma' | 'fibonacci' | 'primo' | 'mcd' | 'aritmetica' | 'geometrica'
+type Variant = 'factorial' | 'suma' | 'fibonacci' | 'primo' | 'mcd' | 'mcm' | 'aritmetica' | 'geometrica'
 
 function variantOf(text: string): Variant | null {
   const t = norm(text)
   if (/factorial|\d\s*!/.test(t)) return 'factorial'
   if (/fibonacci/.test(t)) return 'fibonacci'
   if (/primo/.test(t)) return 'primo'
+  if (/\bmcm\b|minimo comun multiplo|\blcm\b/.test(t)) return 'mcm'
   if (/\bmcd\b|maximo comun divisor|\bgcd\b/.test(t)) return 'mcd'
   if (/geometrica|razon/.test(t)) return 'geometrica'
   if (/sucesion|progresion|secuencia|termino/.test(t)) return 'aritmetica'
@@ -693,6 +695,97 @@ function mcd(text: string, strategyId?: string): Solution {
   }
 }
 
+const LCM_BIG = 'El MCM supera el rango de enteros exactos de esta versión'
+
+function refLcm(a: number, b: number): number {
+  if (a === 0 || b === 0) return 0
+  const g = refGcd(a, b)
+  const v = Math.abs(a / g) * Math.abs(b)
+  if (!Number.isSafeInteger(v)) throw new RefError(LCM_BIG)
+  return v
+}
+
+function mcm(text: string, _strategyId?: string): Solution {
+  const ints = numbers(text).filter((x) => Number.isSafeInteger(x))
+  const [a, b] = ints.length >= 2 ? [ints[0]!, ints[1]!] : [12, 18]
+  const program: Program = {
+    entry: 'mcm',
+    fns: [
+      {
+        name: 'mcm',
+        params: [
+          { name: 'a', type: 'int', doc: 'primer entero.' },
+          { name: 'b', type: 'int', doc: 'segundo entero.' },
+        ],
+        returns: 'int',
+        fallible: true,
+        doc: 'Calcula el mínimo común múltiplo usando mcm(a, b) = |a| / mcd(a, b) · |b|.',
+        returnsDoc: 'El menor entero no negativo múltiplo de ambos.',
+        failsDoc: 'Si el resultado no cabe en un entero exacto.',
+        body: [
+          let_('x', 'int', ref('a'), { step: 1 }),
+          if_(lt(ref('x'), int(0)), [set('x', neg(ref('x')), { step: 1 })], undefined, { step: 1 }),
+          let_('y', 'int', ref('b'), { step: 1 }),
+          if_(lt(ref('y'), int(0)), [set('y', neg(ref('y')), { step: 1 })], undefined, { step: 1 }),
+          if_(or(eq(ref('x'), int(0)), eq(ref('y'), int(0))), [ret(int(0), { step: 2, note: 'mcm(0, n) = 0' })], undefined, { step: 2 }),
+          let_('u', 'int', ref('x'), { step: 3 }),
+          let_('v', 'int', ref('y'), { step: 3 }),
+          while_(ne(ref('v'), int(0)), [let_('resto', 'int', mod(ref('u'), ref('v')), { step: 3 }), set('u', ref('v'), { step: 3 }), set('v', ref('resto'), { step: 3 })], { step: 3, note: 'Euclides: u termina siendo el MCD' }),
+          let_('producto', 'int', mul(idiv(ref('x'), ref('u')), ref('y')), { step: 4, note: 'Dividir antes de multiplicar evita el desborde de a·b' }),
+          if_(lt(ref('producto'), int(0)), [fail(LCM_BIG)], undefined, { step: 4 }),
+          ret(ref('producto'), { step: 5 }),
+        ],
+      },
+    ],
+  }
+  return {
+    kind: KIND,
+    title: `MCM(${a}, ${b})`,
+    status: 'ok',
+    analysis: emptyAnalysis({
+      summary: `Hallar el mínimo común múltiplo de ${a} y ${b}.`,
+      goal: 'El menor entero no negativo que es múltiplo de ambos.',
+      known: ints.length >= 2 ? [`a = ${a}`, `b = ${b}`] : [],
+      unknown: ['mcm(a, b).'],
+      constraints: ['a y b enteros. mcm(0, n) = 0. El resultado es no negativo.'],
+      conditions: ['mcm(a, b) = |a| / mcd(a, b) · |b|.'],
+      edgeCases: ['Un argumento 0: el resultado es 0.', 'Negativos: se toman valores absolutos.', 'Coprimos: el MCM es |a·b|.'],
+      assumptions: ints.length < 2 ? ['Se necesitan dos enteros; se usan 12 y 18 como ejemplo.'] : [],
+    }),
+    math: {
+      steps: [
+        { text: 'Relación con el MCD.', tex: '\\operatorname{lcm}(a,b)=\\frac{|a|}{\\gcd(a,b)}\\cdot |b|' },
+        { text: 'Caso cero.', tex: '\\operatorname{lcm}(0, n) = 0' },
+      ],
+      validity: ['Se divide primero por el MCD para no desbordar a·b.'],
+      result: { text: 'Resultado.', tex: `\\operatorname{lcm}(${a}, ${b}) = ${refLcm(a, b)}` },
+      symbolicVsProgram: 'La identidad es un teorema; el programa calcula el MCD con Euclides y luego el cociente.',
+    },
+    strategies: [{ id: 'euclides', label: 'Vía MCD', summary: 'Calcular el MCD con Euclides y aplicar lcm = |a|/gcd · |b|.' }],
+    strategy: 'euclides',
+    design: {
+      inputs: ['a: entero', 'b: entero'],
+      outputs: ['mcm: entero no negativo'],
+      variables: ['x, y: absolutos', 'u, v: Euclides'],
+      steps: ['Tomar absolutos.', 'Si alguno es 0, devolver 0.', 'Calcular el MCD.', 'producto ← (x / mcd) · y.', 'Devolver el producto.'],
+      conditions: ['x = 0 o y = 0 → 0.'],
+      loops: ['MIENTRAS v ≠ 0 (Euclides).'],
+      special: ['No se calcula a·b / gcd: el producto intermedio puede desbordar.'],
+      complexity: { time: 'O(log(min(a, b)))', space: 'O(1)', why: 'El costo lo domina Euclides.' },
+    },
+    program,
+    tests: uniqueTests([
+      tc([a, b], () => refLcm(a, b), 'normal', 'El caso del enunciado.'),
+      tc([12, 18], () => 36, 'normal', 'mcm(12, 18) = 36.'),
+      tc([7, 5], () => 35, 'normal', 'Coprimos.'),
+      tc([0, 5], () => 0, 'límite', 'Un cero.'),
+      tc([-4, 6], () => 12, 'límite', 'Negativo.'),
+      tc([0, 0], () => 0, 'límite', 'Ambos cero: 0 por convención (distinto del MCD).'),
+    ]),
+    questions: [{ stage: 'algorithm', question: '¿Por qué no hacemos a · b / mcd?', answer: 'Porque a · b puede desbordar aunque el MCM final no lo haga. Se divide primero.' }],
+  }
+}
+
 // ---------- Sucesiones ----------
 
 const SEQ_N = 'n debe ser al menos 1'
@@ -862,12 +955,13 @@ function sequence(text: string, geometric: boolean, strategyId?: string): Soluti
 export const iterationKind: KindDef = {
   id: KIND,
   label: 'Iteración y secuencias',
-  description: 'Factorial, suma hasta n, Fibonacci, primos, MCD y sucesiones aritméticas o geométricas.',
+  description: 'Factorial, suma hasta n, Fibonacci, primos, MCD, MCM y sucesiones aritméticas o geométricas.',
   examples: [
     { title: 'Factorial', text: 'Calcular el factorial de 6' },
     { title: 'Fibonacci', text: 'Término 15 de la sucesión de Fibonacci' },
     { title: 'Primo', text: '¿Es primo 221?' },
     { title: 'MCD', text: 'Máximo común divisor de 84 y 36' },
+    { title: 'MCM', text: 'Mínimo común múltiplo de 12 y 18' },
     { title: 'Sucesión', text: 'Término 20 de la sucesión 2, 5, 8, 11' },
     { title: 'Suma de 1 a n', text: 'Suma de los primeros 100 números naturales' },
   ],
@@ -884,6 +978,8 @@ export const iterationKind: KindDef = {
         return primo(text, strategy)
       case 'mcd':
         return mcd(text, strategy)
+      case 'mcm':
+        return mcm(text, strategy)
       case 'aritmetica':
         return sequence(text, false, strategy)
       case 'geometrica':

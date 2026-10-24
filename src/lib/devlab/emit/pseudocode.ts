@@ -26,7 +26,7 @@ const OPS: Record<BinOp, [string, number]> = {
   '//': ['DIV', 5],
   '%': ['MOD', 5],
 }
-const FN: Record<string, string> = { sqrt: 'RAÍZ', abs: 'ABS', floor: 'PISO', sin: 'SEN', cos: 'COS', tan: 'TAN', exp: 'EXP', ln: 'LN', log10: 'LOG10' }
+const FN: Record<string, string> = { sqrt: 'RAÍZ', abs: 'ABS', floor: 'PISO', ceil: 'TECHO', round: 'REDONDEO', sin: 'SEN', cos: 'COS', tan: 'TAN', exp: 'EXP', ln: 'LN', log10: 'LOG10' }
 
 function num(v: number, float: boolean): string {
   const s = String(v)
@@ -61,6 +61,10 @@ function ex(e: Expr): [string, number] {
       return [`LONGITUD(${e.list})`, 9]
     case 'at':
       return [`${e.list}[${ex(e.index)[0]}]`, 9]
+    case 'concat':
+      return [`${wrap(e.l, 4)} + ${wrap(e.r, 5)}`, 4]
+    case 'slice':
+      return [`${e.str}[${ex(e.from)[0]} … ${ex(e.to)[0]})`, 9]
     case 'call':
       return [`${e.fn}(${e.args.map((a) => ex(a)[0]).join(', ')})`, 9]
     case 'bin': {
@@ -87,6 +91,12 @@ export function toPseudocode(p: Program): PseudoLine[] {
           break
         case 'set':
           push(d, `${s.name} ← ${pseudoExpr(s.value)}`, s.step)
+          break
+        case 'copy':
+          push(d, `${s.name} ← COPIA(${s.from})`, s.step)
+          break
+        case 'setAt':
+          push(d, `${s.list}[${pseudoExpr(s.index)}] ← ${pseudoExpr(s.value)}`, s.step)
           break
         case 'if': {
           push(d, `SI ${pseudoExpr(s.cond)} ENTONCES`, s.step)

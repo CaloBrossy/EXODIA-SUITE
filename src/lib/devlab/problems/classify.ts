@@ -296,6 +296,13 @@ export const classifyKind: KindDef = {
     { title: 'Nota', text: 'Notas 8.5, 6, 5.99 y 10 sobre 10, se aprueba con 6' },
     { title: 'Tipo de triángulo', text: 'Clasificar el triángulo de lados 5, 5 y 8' },
   ],
-  detect: (text) => (variantOf(norm(text)) ? (/triangul/.test(norm(text)) ? 0.9 : 0.75) : 0),
+  detect: (text) => {
+    const t = norm(text)
+    const v = variantOf(t)
+    if (!v) return 0
+    if (/triangul/.test(t)) return 0.9
+    if (v === 'nota' && /(?:promedio|media|\bsuma\b|\bmaximo\b|\bminimo\b|\brango\b|mediana)/.test(t) && !/aprob|clasific|umbral|calificacion/.test(t)) return 0.2
+    return 0.75
+  },
   build,
 }

@@ -54,7 +54,7 @@ describe('lectura: roles de los números', () => {
     expect(r.ambiguities.length).toBeGreaterThan(0)
     expect(planFromReading(r, 'auto', 'stats').type).toBe('clarify')
   })
-  it('varias operaciones → sin candidato', () => expect(analyzeStatement('Máximo y mínimo de 3, 4').candidate).toBeNull())
+  it('varias operaciones del mismo tipo conservan el candidato', () => expect(analyzeStatement('Máximo y mínimo de 3, 4').candidate).toBe('stats'))
   it('coma decimal → se deja al flujo existente', () => expect(planFromReading(analyzeStatement('Promedio de 1,5 y 2'), 'auto', 'stats').type).toBe('legacy'))
   it('intención de otro tipo compite (iteración)', () => expect(planFromReading(analyzeStatement('Suma de los primeros 100 números'), 'auto', 'iteration').type).toBe('legacy'))
 })
@@ -93,14 +93,17 @@ describe('casos mejorados', () => {
     expect(s.analysis.clarifications?.length).toBe(2)
     for (const c of s.analysis.clarifications ?? []) expect(solve(c.text, 'auto').status).toBe('ok')
   })
-  it.each(['Subarreglo de suma máxima de 1, -2, 3, 4', 'Invertir la cadena hola', 'Ordená de menor a mayor 5, 3, 1', 'Mediana de 3, 1, 2', 'Contá las vocales de la palabra casa'])(
-    'no soportado: %s',
-    (t) => {
-      const s = solve(t, 'auto')
-      expect(s.status).toBe('unsupported')
-      expect(s.program).toBeUndefined()
-    },
-  )
+  it.each([
+    ['Subarreglo de suma máxima de 1, -2, 3, 4', 'subarray'],
+    ['Invertir la cadena hola', 'strings'],
+    ['Ordená de menor a mayor 5, 3, 1', 'sort'],
+    ['Mediana de 3, 1, 2', 'stats'],
+    ['Contá las vocales de la palabra casa', 'strings'],
+  ] as const)('ahora soportado: %s → %s', (t, kind) => {
+    const s = solve(t, 'auto')
+    expect(s.status).toBe('ok')
+    expect(s.kind).toBe(kind)
+  })
 })
 
 describe('adversarial: contexto, intenciones y compatibilidad', () => {

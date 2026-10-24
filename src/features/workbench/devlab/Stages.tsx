@@ -79,7 +79,8 @@ export function MathStage({ sol }: { sol: Solution }) {
 }
 
 export function AlgorithmStage({ sol, onStrategy }: { sol: Solution; onStrategy: (id: string) => void }) {
-  const d = sol.design!
+  if (!sol.design) return <Note>No hay diseño algorítmico: el resultado es una consulta.</Note>
+  const d = sol.design
   return (
     <div className="flex flex-col gap-4">
       {sol.strategies.length > 1 && (
@@ -128,7 +129,8 @@ export function AlgorithmStage({ sol, onStrategy }: { sol: Solution; onStrategy:
 }
 
 export function PseudoStage({ sol }: { sol: Solution }) {
-  const lines = useMemo(() => toPseudocode(sol.program!), [sol])
+  const lines = useMemo(() => (sol.program ? toPseudocode(sol.program) : []), [sol])
+  if (!sol.program) return <Note>Este problema no genera pseudocódigo de la IR: el artefacto es la consulta SQL.</Note>
   const steps = sol.design?.steps ?? []
   const [hover, setHover] = useState<number | null>(null)
   return (
@@ -158,7 +160,7 @@ export const LANG_OPTIONS: LangId[] = [...CODE_LANGS, 'sql']
 
 export function CodeStage({ sol, lang, onLang }: { sol: Solution; lang: LangId; onLang: (l: LangId) => void }) {
   const info = LANGS[lang]
-  const gen = useMemo(() => (lang === 'sql' ? null : generateCode(lang, sol.program!, sol.tests)), [lang, sol])
+  const gen = useMemo(() => (lang === 'sql' || !sol.program ? null : generateCode(lang, sol.program, sol.tests)), [lang, sol])
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -169,6 +171,7 @@ export function CodeStage({ sol, lang, onLang }: { sol: Solution; lang: LangId; 
         </Select>
         <span className="text-xs text-muted">{info.typing}</span>
       </div>
+      {sol.kind === 'query' && <Note>SQL acá es el tipo de problema (consulta de entrada), no solo el lenguaje de salida de los otros tipos.</Note>}
       {lang === 'sql' ? (
         sol.sql ? (
           <>
@@ -200,6 +203,11 @@ export function CodeStage({ sol, lang, onLang }: { sol: Solution; lang: LangId; 
 const CAT_CLS = { normal: 'text-ok', límite: 'text-amber-500', inválido: 'text-danger' } as const
 
 export function TestsStage({ sol }: { sol: Solution }) {
+  if (!sol.program) return <Note>Este problema se verifica con el script SQL, no con el intérprete de la IR.</Note>
+  return <ProgramTests sol={sol} />
+}
+
+function ProgramTests({ sol }: { sol: Solution }) {
   const fn = entryFn(sol.program!)
   const types = fn.params.map((p) => p.type)
   const [runs, setRuns] = useState<RunResult[] | null>(null)

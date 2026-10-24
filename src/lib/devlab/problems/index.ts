@@ -4,13 +4,18 @@ import { expressionKind } from './expression'
 import { geometryKind } from './geometry'
 import { iterationKind } from './iteration'
 import { linearKind } from './linear'
+import { queryKind } from './query'
 import { searchKind } from './search'
+import { sortKind } from './sort'
 import { statsKind } from './stats'
+import { stringsKind } from './strings'
+import { subarrayKind } from './subarray'
 import { vectorsKind } from './vectors'
 import { needsClarification, unsupported } from './shared'
 import { analyzeStatement, planFromReading } from '../understanding'
+import { auditSolution } from '../validate'
 
-export const KINDS: KindDef[] = [expressionKind, linearKind, geometryKind, statsKind, classifyKind, searchKind, iterationKind, vectorsKind]
+export const KINDS: KindDef[] = [expressionKind, linearKind, geometryKind, statsKind, classifyKind, searchKind, iterationKind, vectorsKind, subarrayKind, sortKind, stringsKind, queryKind]
 
 export const kindById = (id: KindId) => KINDS.find((k) => k.id === id)
 
@@ -40,7 +45,7 @@ export function solve(text: string, kind: KindId | 'auto', strategy?: string): S
   if (plan.type === 'rewrite') {
     const s = kindById(plan.kind)!.build(plan.text, strategy)
     s.analysis.assumptions.unshift(`Se interpretó como «${plan.text}».`, ...plan.notes.map((x) => `${x}.`))
-    return s
+    return auditSolution(t, reading, s)
   }
   if (!def)
     return unsupported(
@@ -48,7 +53,7 @@ export function solve(text: string, kind: KindId | 'auto', strategy?: string): S
       'Problema no reconocido',
       'No pude identificar el tipo de problema con las reglas de esta versión. Elegí el tipo manualmente o reformulá el enunciado siguiendo alguno de los ejemplos.',
     )
-  return def.build(t, strategy)
+  return auditSolution(t, reading, def.build(t, strategy))
 }
 
 /** Todos los ejemplos con todas sus estrategias: se usan en las pruebas automáticas. */

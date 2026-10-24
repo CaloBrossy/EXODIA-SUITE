@@ -15,6 +15,13 @@ describe('devlab: ejemplos', () => {
   for (const s of samples) {
     describe(`${s.kind} · ${s.text} · ${s.strategy}`, () => {
       const sol = s.solution
+      if (s.kind === 'query') {
+        it('genera SQL de entrada verificable', () => {
+          expect(sol.status).toBe('ok')
+          expect(sol.sql?.code).toMatch(/SELECT/i)
+        })
+        return
+      }
       it('se resuelve sin aclaraciones y con pruebas de las tres categorías posibles', () => {
         expect(sol.status).toBe('ok')
         expect(sol.program).toBeDefined()

@@ -310,6 +310,7 @@ export const expressionKind: KindDef = {
     { title: 'Función con dominio', text: 'f(x) = (x^2 - 4) / (x - 2)' },
     { title: 'Raíz y logaritmo', text: 'g(t) = sqrt(t - 1) + log(t)' },
     { title: 'Dos variables', text: 'h(x, y) = sqrt(x^2 + y^2) para x = 3, y = 4' },
+    { title: 'Techo y redondeo', text: 'ceil(1.2) + round(-1.5)' },
   ],
   detect(text) {
     const t = norm(text)

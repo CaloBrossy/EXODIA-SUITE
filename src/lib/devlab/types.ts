@@ -1,6 +1,6 @@
 import type { Program, Value } from './ir'
 
-export const KIND_IDS = ['expression', 'linear', 'geometry', 'stats', 'classify', 'search', 'iteration', 'vectors'] as const
+export const KIND_IDS = ['expression', 'linear', 'geometry', 'stats', 'classify', 'search', 'iteration', 'vectors', 'subarray', 'sort', 'strings', 'query'] as const
 export type KindId = (typeof KIND_IDS)[number]
 
 export const STAGES = [

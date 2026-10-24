@@ -12,10 +12,12 @@ export const MSG = {
   pow0: 'Potencia de base cero con exponente negativo',
 } as const
 
-export const FUNCS: Record<string, 'sqrt' | 'abs' | 'floor' | 'sin' | 'cos' | 'tan' | 'exp' | 'ln' | 'log10'> = {
+export const FUNCS: Record<string, 'sqrt' | 'abs' | 'floor' | 'ceil' | 'round' | 'sin' | 'cos' | 'tan' | 'exp' | 'ln' | 'log10'> = {
   sqrt: 'sqrt',
   abs: 'abs',
   floor: 'floor',
+  ceil: 'ceil',
+  round: 'round',
   sin: 'sin',
   cos: 'cos',
   tan: 'tan',
@@ -107,6 +109,10 @@ export function refEval(node: MathNode, scope: Record<string, number>): number {
           return Math.abs(a)
         case 'floor':
           return Math.floor(a)
+        case 'ceil':
+          return Math.ceil(a)
+        case 'round':
+          return a >= 0 ? Math.floor(a + 0.5) : Math.ceil(a - 0.5)
         case 'sin':
           return Math.sin(a)
         case 'cos':
@@ -146,7 +152,7 @@ export function checkSupported(node: MathNode): string | null {
       }
       case 'FunctionNode': {
         const name = (x.fn as Node).name as string
-        if (!FUNCS[name]) problem = `La función "${name}" no está admitida. Disponibles: ${Object.keys(FUNCS).join(', ')}.`
+        if (!FUNCS[name]) problem = `La función "${name}" no está admitida. Disponibles: sqrt, abs, floor, sin, cos, tan, exp, log, ln, log10.`
         else if ((x.args as unknown[]).length !== 1) problem = `La función "${name}" recibe un solo argumento.`
         break
       }
