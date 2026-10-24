@@ -36,7 +36,7 @@ export function auditSolution(_text: string, reading: Reading, sol: Solution): S
   if (reading.constraints.some((c) => c.includes('lineal')) && sol.design && /n\s*\^|n²|O\(n²\)/.test(sol.design.complexity.time)) {
     return unsupported(sol.kind, 'Complejidad incompatible', `El enunciado pide tiempo lineal y la estrategia «${sol.strategy}» es ${sol.design.complexity.time}.`)
   }
-  if (sol.program && reading.forbid.includes('mutate') && features(sol.program).has('setAt') && !features(sol.program).has('listCopy')) {
+  if (sol.program && reading.forbid.includes('mutate') && features(sol.program).has('setAt') && !features(sol.program).has('listCopy') && !features(sol.program).has('listAlloc')) {
     return unsupported(sol.kind, 'Entrada mutable', 'El enunciado pide conservar la entrada y la estrategia la modifica in-place.')
   }
   return sol

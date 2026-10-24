@@ -159,6 +159,9 @@ function forbidOf(n: string): { ids: ForbidId[]; constraints: string[] } {
 }
 
 function unsupportedOf(n: string): { reason: string; evidence: string } | null {
+  if (/a\s*_?\s*[\(\{\[]\s*[a-z]\s*\+\s*[a-z]/.test(n)) {
+    return { reason: 'Las recurrencias de dos índices con parámetros simbólicos no se representan en esta versión. No se inventan d, n ni demás constantes.', evidence: 'recurrencia a_(m+n)' }
+  }
   if (/\bsub(?:secuencia|conjunto)s?\b/.test(n) && !/\bsubarreglo\b/.test(n)) {
     const m = n.match(/\bsub(?:secuencia|conjunto)s?\b/)!
     return { reason: 'Los problemas de subsecuencias o subconjuntos todavía no están soportados.', evidence: m[0] }
@@ -312,10 +315,11 @@ export function analyzeStatement(text: string): Reading {
   const subarray = SUBARRAY_INTENT.test(n)
   if (subarray) reading.operations.push({ id: 'maxsub', kind: 'subarray', evidence: n.match(SUBARRAY_INTENT)?.[0] ?? 'subarreglo' })
   if (!subarray && !SORT_DIR.test(n)) {
-    for (const o of STATS_OPS) {
+    const hits = STATS_OPS.flatMap((o) => {
       const m = n.match(o.re)
-      if (m) reading.operations.push({ id: o.id, kind: 'stats', evidence: m[0] })
-    }
+      return m && m.index !== undefined ? [{ o, at: m.index, ev: m[0] }] : []
+    }).sort((a, b) => a.at - b.at)
+    for (const h of hits) reading.operations.push({ id: h.o.id, kind: 'stats', evidence: h.ev })
   }
   if (search) reading.operations.push({ id: 'buscar', kind: 'search', evidence: search[0] })
   reading.searchMode = searchModeOf(n, !!search)
@@ -393,6 +397,7 @@ export function planFromReading(r: Reading, chosen: KindId | 'auto', legacy: Kin
   if (r.ambiguities.length) return r.clarifications.length ? { type: 'clarify', kind: k, reading: r } : { type: 'legacy' }
   if (!r.canonical) return { type: 'legacy' }
   const hasContext = r.numbers.some((x) => x.role === 'contexto' || x.role === 'parametro')
-  if (legacy === k && !hasContext) return { type: 'legacy' }
+  const multiStats = k === 'stats' && r.operations.filter((o) => o.kind === 'stats').length > 1
+  if (legacy === k && !hasContext && !multiStats) return { type: 'legacy' }
   return { type: 'rewrite', kind: k, text: r.canonical, notes: r.evidence }
 }

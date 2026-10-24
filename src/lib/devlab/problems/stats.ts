@@ -1,5 +1,6 @@
-import { add, and, at, call, div, each, eq, fail, flt, for_, gt, idiv, if_, int, le, len, let_, lt, math, mod, mul, ref, ret, set, sub, toF, type Fn, type Program, type Stmt } from '../ir'
+import { add, alloc, and, at, call, div, each, eq, fail, flt, for_, gt, idiv, if_, int, le, len, let_, lt, math, mod, mul, ref, ret, set, setAt, sub, toF, type Expr, type Fn, type Program, type Stmt } from '../ir'
 import { emptyAnalysis, type KindDef, type Solution } from '../types'
+import { analyzeStatement } from '../understanding'
 import { decimalCommaClarifications, fmt, needsClarification, norm, numbers, texNum } from './shared'
 import { tableScript } from './sqlgen'
 import { RefError, tc, uniqueTests } from './testing'
@@ -25,6 +26,7 @@ const OPS: { id: Op; re: RegExp; label: string }[] = [
   { id: 'suma', re: /\bsuma\b|\bsumar\b|(?<!en )\btotal\b/, label: 'Suma' },
 ]
 
+const CLASSIC: Op[] = ['suma', 'promedio', 'maximo', 'minimo', 'rango']
 const SPARSE = 'n debe ser al menos 2 para la varianza muestral'
 const MULTI_MODE = 'Hay varias modas: indicá cuál o reformulá el enunciado'
 
@@ -158,6 +160,50 @@ function kthFn(): Fn {
         { step: 2 },
       ),
       ret(at('valores', int(0)), { step: 5 }),
+    ],
+  }
+}
+
+function measureOf(op: Op): { name: string; value: Expr } {
+  if (op === 'suma') return { name: 'total', value: ref('total') }
+  if (op === 'promedio') return { name: 'media', value: div(ref('total'), toF(len('valores'))) }
+  if (op === 'maximo') return { name: 'mayor', value: ref('mayor') }
+  if (op === 'minimo') return { name: 'menor', value: ref('menor') }
+  return { name: 'rango', value: sub(ref('mayor'), ref('menor')) }
+}
+
+function programBundle(ops: Op[]): Program {
+  return {
+    entry: 'medidas',
+    fns: [
+      {
+        name: 'medidas',
+        params: [{ name: 'valores', type: 'float[]', doc: 'números a analizar.' }],
+        returns: 'float[]',
+        fallible: true,
+        doc: `Calcula ${ops.join(', ')} en un solo recorrido.`,
+        returnsDoc: 'Las medidas pedidas, en el orden del enunciado.',
+        failsDoc: 'Si la lista está vacía.',
+        body: [
+          if_(eq(len('valores'), int(0)), [fail(EMPTY)], undefined, { step: 1, note: 'Sin datos no hay resultado' }),
+          let_('total', 'float', flt(0), { step: 2 }),
+          let_('mayor', 'float', at('valores', int(0)), { step: 2 }),
+          let_('menor', 'float', at('valores', int(0)), { step: 2 }),
+          each(
+            'valor',
+            'valores',
+            [
+              set('total', add(ref('total'), ref('valor')), { step: 3 }),
+              if_(gt(ref('valor'), ref('mayor')), [set('mayor', ref('valor'), { step: 3 })], undefined, { step: 3 }),
+              if_(lt(ref('valor'), ref('menor')), [set('menor', ref('valor'), { step: 3 })], undefined, { step: 3 }),
+            ],
+            { step: 3, note: 'Un recorrido acumula suma y extremos' },
+          ),
+          alloc('salida', 'float[]', int(ops.length), flt(0), { step: 4 }),
+          ...ops.map((op, i) => setAt('salida', int(i), measureOf(op).value, { step: 4 })),
+          ret(ref('salida'), { step: 5 }),
+        ],
+      },
     ],
   }
 }
@@ -311,11 +357,78 @@ const SQL_AGG: Partial<Record<Op, [string, string]>> = {
   producto: ['EXP(COALESCE(SUM(LN(valor)), 0.0)) AS producto', 'El producto se obtiene como exp(suma de logs); solo vale para positivos.'],
 }
 
+function buildBundle(_text: string, _t: string, found: { id: Op; label: string }[], list: number[]): Solution {
+  const assumptions: string[] = []
+  let data = list
+  if (!data.length) {
+    data = [4, 8, 15, 16, 23, 42]
+    assumptions.push('No se dieron datos: se usa la lista de ejemplo 4, 8, 15, 16, 23, 42.')
+  }
+  const ops = found.map((o) => o.id)
+  const labels = found.map((o) => o.label.toLowerCase())
+  const values = ops.map((op) => reference(op, data))
+  const n = data.length
+  const shown = data.length > 6 ? `${data.slice(0, 6).map(fmt).join(', ')}, …` : data.map(fmt).join(', ')
+  return {
+    kind: KIND,
+    title: `${found.map((o) => o.label).join(', ')} de ${shown}`,
+    status: 'ok',
+    analysis: emptyAnalysis({
+      summary: `Calcular ${labels.join(', ')} de una lista de ${n} números en un recorrido.`,
+      goal: `Las ${found.length} medidas, en el orden pedido.`,
+      known: [`Valores: ${data.map(fmt).join(', ')}`, `n = ${n}`],
+      unknown: found.map((o) => `El ${o.label.toLowerCase()}.`),
+      constraints: ['Los valores son números reales.', 'La lista no puede estar vacía.', 'Un solo recorrido.', 'No ordenar la entrada.', 'No usar funciones estadísticas predefinidas.'],
+      conditions: ['El orden de los valores no cambia el resultado.'],
+      edgeCases: ['Lista vacía: error.', 'Un solo elemento.', 'Valores negativos.', 'Valores repetidos.'],
+      assumptions,
+    }),
+    math: {
+      steps: [
+        { text: 'Definición.', tex: found.map((o, i) => `${o.label}: ${['S', '\\bar{x}', '\\max', '\\min', 'R'][CLASSIC.indexOf(ops[i]!)] ?? o.label}`).join(',\\quad ') },
+        { text: 'Datos.', tex: `x = (${data.slice(0, 8).map(texNum).join(',\\ ')}${data.length > 8 ? ',\\ \\ldots' : ''}),\\quad n = ${n}` },
+        { text: 'Resultados.', tex: found.map((o, i) => `${o.label} = ${texNum(values[i]!)}`).join(',\\quad ') },
+      ],
+      validity: ['Requiere n ≥ 1.'],
+      result: { text: 'Resultado.', tex: `(${values.map(texNum).join(',\\ ')})` },
+      symbolicVsProgram: 'Las cinco cantidades se obtienen de total, mayor y menor; no hace falta reordenar ni un agregado por medida.',
+    },
+    strategies: [{ id: 'recorrido', label: 'Un recorrido', summary: 'Un pase: se acumulan suma, máximo y mínimo; el resto se deriva al final.' }],
+    strategy: 'recorrido',
+    design: {
+      inputs: ['valores: lista de reales'],
+      outputs: found.map((o) => `${o.label.toLowerCase()}: real`),
+      variables: ['total: acumulador', 'mayor, menor: extremos', 'salida: lista de medidas'],
+      steps: ['Rechazar la lista vacía.', 'Inicializar total en 0 y los extremos con el primer valor.', 'Recorrer una vez: sumar y actualizar extremos.', 'Escribir las medidas pedidas.', 'Devolver la lista.'],
+      conditions: ['Lista vacía → error.'],
+      loops: ['PARA CADA valor EN valores: un solo recorrido.'],
+      special: ['No se ordena. No se usan AVG/MAX/MIN de biblioteca. El promedio convierte n a real.'],
+      complexity: { time: 'O(n)', space: 'O(1)', why: 'Un pase y un número fijo de acumuladores; la salida tiene tamaño constante.' },
+    },
+    program: programBundle(ops),
+    tests: uniqueTests([
+      tc([data], () => values, 'normal', 'Los datos del enunciado.'),
+      tc([[2, 9, 4]], () => ops.map((op) => reference(op, [2, 9, 4])), 'normal', 'Lista corta desordenada.'),
+      tc([[-3, -7, -1]], () => ops.map((op) => reference(op, [-3, -7, -1])), 'normal', 'Todos negativos.'),
+      tc([[5]], () => ops.map((op) => reference(op, [5])), 'límite', 'Un solo elemento.'),
+      tc([[]], () => {
+        throw new RefError(EMPTY)
+      }, 'inválido', 'Lista vacía.'),
+    ]),
+    sqlNote: 'SQL puede listar varios agregados en un SELECT, pero el programa es la referencia de un único recorrido sin funciones estadísticas predefinidas.',
+    questions: [
+      { stage: 'problem', question: '¿Hay que aclarar cuál medida?', answer: 'No: el enunciado ya enumera todas. Se calculan juntas.' },
+      { stage: 'algorithm', question: '¿Por qué un solo recorrido?', answer: 'Suma, máximo y mínimo se actualizan con el mismo elemento; promedio y rango se derivan al final.' },
+    ],
+  }
+}
+
 function build(text: string): Solution {
   const decimal = decimalCommaClarifications(text)
   if (decimal) return needsClarification(KIND, 'Estadística', { summary: 'Hay números con coma.', ambiguities: ['¿La coma separa decimales o elementos de la lista?'] }, decimal)
   const t = norm(text)
-  const list = numbers(text)
+  const reading = analyzeStatement(text)
+  const list = reading.operations.some((o) => o.kind === 'stats') && reading.data.length ? reading.data : numbers(text)
   const base = list.length ? list.map(fmt).join(', ') : '4, 8, 15, 16, 23, 42'
   if (/\bvarianza\b/.test(t) && !/poblacional|muestral/.test(t))
     return needsClarification(KIND, 'Varianza', { summary: 'Hay dos convenciones de varianza.', ambiguities: ['¿Varianza poblacional (÷ n) o muestral (÷ n − 1)?'] }, [
@@ -327,16 +440,20 @@ function build(text: string): Solution {
       { label: 'Poblacional', text: `Desvío estándar poblacional de ${base}` },
       { label: 'Muestral', text: `Desvío estándar muestral de ${base}` },
     ])
+  const sortDir = /\bde (?:mayor a menor|menor a mayor)\b|\bdescendente|\bascendente/.test(t)
   const found = OPS.filter((o) => o.re.test(t))
+  if (!sortDir && found.length > 1 && found.every((o) => CLASSIC.includes(o.id))) {
+    const ordered = [...found].sort((a, b) => t.search(a.re) - t.search(b.re))
+    return buildBundle(text, t, ordered, list)
+  }
   if (found.length !== 1) {
-    const base = list.length ? list.map(fmt).join(', ') : '4, 8, 15, 16, 23, 42'
-    const classic: Op[] = ['promedio', 'maximo', 'minimo', 'rango', 'suma']
-    const suggest = found.length ? found : OPS.filter((o) => classic.includes(o.id))
+    const shown = list.length ? list.map(fmt).join(', ') : '4, 8, 15, 16, 23, 42'
+    const suggest = found.length ? found : OPS.filter((o) => CLASSIC.includes(o.id))
     return needsClarification(
       KIND,
       'Estadística',
       { summary: found.length ? 'Se piden varias medidas a la vez.' : 'No se indica qué medida calcular.', ambiguities: ['¿Qué medida hay que calcular? Cada una es un algoritmo distinto.'] },
-      suggest.map((o) => ({ label: o.label, text: `${o.label} de ${base}` })),
+      suggest.map((o) => ({ label: o.label, text: `${o.label} de ${shown}` })),
     )
   }
   const op = found[0]!.id

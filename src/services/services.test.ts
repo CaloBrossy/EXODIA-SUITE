@@ -5,6 +5,7 @@ import { createNote, deleteNote, filterNotes, listNotes, updateNote } from './no
 import { deleteConcept, emptyConcept, saveConcept } from './concepts'
 import { emptyFormula, evaluateFormula, saveFormula, validateEvalExpression } from './formulas'
 import { exportData, importData, parseBackup } from './backup'
+import { mapLocalToRemote, mapRemoteToLocal, mergeRows, takeRemote } from './sync'
 import { createTask, setTaskDone, settleTimer, updateTimer } from './focus'
 import { addQuestion } from './knowledge'
 import { start } from '@/lib/pomodoro'
@@ -128,5 +129,36 @@ describe('exportación e importación', () => {
     const r = parseBackup(JSON.stringify(broken))
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.error).toMatch(/notes/)
+  })
+})
+
+describe('sync a supabase', () => {
+  it('mapea seed Dexie a filas remotas', async () => {
+    const uid = '11111111-1111-1111-1111-111111111111'
+    const remote = mapLocalToRemote((await exportData()).data, uid)
+    expect(remote.concepts.length).toBe(SEED_CONCEPTS.length)
+    expect(remote.subjects).toHaveLength(9)
+    expect(remote.tools[0]).toMatchObject({ user_id: uid, sort_order: 1, seed: true })
+    expect(remote.concepts[0]?.created_at).toMatch(/T/)
+    expect(remote.kv).toEqual([])
+  })
+  it('en un empate se queda la copia local', () => {
+    expect(takeRemote(10, 10)).toBe(false)
+    expect(takeRemote(null, 4)).toBe(true)
+    const local = [{ id: 'a', updatedAt: 5, title: 'local' }]
+    const remote = [{ id: 'a', updatedAt: 5, title: 'nube' }, { id: 'b', updatedAt: 1, title: 'nueva' }]
+    const merged = mergeRows(local, remote, (r) => r.updatedAt, 'merge')
+    expect(merged.map((r) => r.title)).toEqual(['local', 'nueva'])
+    expect(mergeRows(local, remote, (r) => r.updatedAt, 'remote-wins').map((r) => r.title)).toEqual(['nube', 'nueva'])
+  })
+  it('traduce una fila remota a la forma local', () => {
+    const local = mapRemoteToLocal({
+      subjects: [], concepts: [], formulas: [], notes: [], questions: [], calculations: [], tasks: [], sessions: [], sketches: [], tools: [], kv: [],
+      dev_problems: [{
+        id: 'p1', user_id: 'u', title: 'Suma', text: '1+1', kind: 'expr', strategy: 'direct', lang: 'py', mode: 'guided', stage: 'code', revealed: 2,
+        created_at: '2020-01-01T00:00:00.000Z', updated_at: '2020-01-02T00:00:00.000Z',
+      }],
+    })
+    expect(local.devProblems[0]).toMatchObject({ id: 'p1', title: 'Suma', revealed: 2, mode: 'guided' })
   })
 })

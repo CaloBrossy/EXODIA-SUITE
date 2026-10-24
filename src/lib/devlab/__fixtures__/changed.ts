@@ -14,4 +14,6 @@ export const CHANGED = new Set([
   'Subarreglo de suma máxima de 1, -2, 3, 4',
   'Invertir la cadena hola',
   'Ordená de menor a mayor 5, 3, 1',
+  'Máximo y mínimo de 3, 4',
+  'Una profesora registra las notas de 12 estudiantes: 8, 6, 10, 4, 7, 9, 6, 5, 10, 3, 8, 8. El curso tiene 28 estudiantes en total y el examen duró 120 minutos. Calcular suma, promedio, máximo, mínimo y rango de las notas.',
 ])

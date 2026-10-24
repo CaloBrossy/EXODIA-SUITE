@@ -13,6 +13,7 @@ class Returned {
 
 const STEP_LIMIT = 20_000_000
 const DEPTH_LIMIT = 2_000
+const ALLOC_MAX = 400_001
 
 export type RunResult = { ok: true; value: Value; steps: number } | { ok: false; error: string; runtime: boolean; steps: number }
 
@@ -129,6 +130,14 @@ export function runProgram(p: Program, args: Value[]): RunResult {
           case 'copy': {
             const src = env.get(s.from) as number[]
             env.set(s.name, src.slice())
+            declared.push(s.name)
+            break
+          }
+          case 'alloc': {
+            const n = ev(s.len, env) as number
+            if (!Number.isSafeInteger(n) || n < 0 || n > ALLOC_MAX) throw new RuntimeFault(`Longitud de reserva inválida: ${n}`)
+            const fill = ev(s.fill, env) as number
+            env.set(s.name, Array.from({ length: n }, () => fill))
             declared.push(s.name)
             break
           }

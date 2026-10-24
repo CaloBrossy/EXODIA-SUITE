@@ -118,12 +118,16 @@ describe('adversarial: contexto, intenciones y compatibilidad', () => {
     expect(s.status).toBe('clarify')
     expect(s.program).toBeUndefined()
   })
-  it('dos operaciones: no elige una en silencio', () => {
-    for (const t of ['No calcules el promedio; encontrá el máximo de 3, 8, 5', 'Calculá el promedio y después encontrá el máximo de 3, 8, 5', 'Máximo y mínimo de 3, 4']) {
-      const s = solve(t, 'auto')
-      expect(s.status, t).not.toBe('ok')
-      expect(s.program, t).toBeUndefined()
-    }
+  it('negación más otra operación: no elige una en silencio', () => {
+    const t = 'No calcules el promedio; encontrá el máximo de 3, 8, 5'
+    const s = solve(t, 'auto')
+    expect(s.status, t).not.toBe('ok')
+    expect(s.program, t).toBeUndefined()
+  })
+  it('máximo y mínimo especificados se resuelven juntos', () => {
+    const s = solve('Máximo y mínimo de 3, 4', 'auto')
+    expect(s.status).toBe('ok')
+    expect(s.program).toBeDefined()
   })
   it('negación de una sola operación: no calcula', () => {
     const t = 'No calcules el promedio de 3, 8, 5'

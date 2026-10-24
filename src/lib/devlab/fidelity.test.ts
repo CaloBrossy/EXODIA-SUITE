@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { generateCode, CODE_LANGS } from './emit/code'
-import { validateProgram } from './ir'
+import { toPseudocode } from './emit/pseudocode'
+import { validateProgram, type Stmt } from './ir'
 import { runProgram, sameValue } from './interpreter'
 import { detectKind, solve } from './problems'
 import { bruteWindow } from './problems/subarray'
@@ -29,17 +30,20 @@ describe('fidelidad: notas y números contextuales', () => {
     const r = analyzeStatement(GRADES12)
     expect(r.data).toEqual(NOTES)
     expect(r.numbers.filter((n) => n.role === 'contexto').map((n) => n.value).sort((a, b) => a - b)).toEqual([12, 28, 120])
-    const s = solve(GRADES12, 'auto')
-    expect(s.status).toBe('clarify')
+    const s = runOk(GRADES12, [NOTES], [84, 7, 10, 3, 7])
     expect(s.kind).toBe('stats')
-    const texts = (s.analysis.clarifications ?? []).map((c) => c.text)
-    expect(texts.some((t) => t.includes('28') || t.includes('120'))).toBe(false)
-    expect(texts.some((t) => /8, 6, 10, 4, 7, 9, 6, 5, 10, 3, 8, 8/.test(t))).toBe(true)
-    for (const c of s.analysis.clarifications ?? []) {
-      const one = solve(c.text, 'auto')
-      expect(one.status, c.text).toBe('ok')
-      expect(JSON.stringify(one.tests[0]!.args)).toContain(JSON.stringify(NOTES))
-    }
+    expect(s.strategy).toBe('recorrido')
+    expect(JSON.stringify(s.tests[0]!.args)).toBe(JSON.stringify([NOTES]))
+    expect(JSON.stringify(s.tests[0]!.args)).not.toContain('28')
+    expect(JSON.stringify(s.tests[0]!.args)).not.toContain('120')
+    const eachs = JSON.stringify(s.program).match(/"k":"each"/g) ?? []
+    expect(eachs.length).toBe(1)
+    const py = generateCode('python', s.program!, s.tests).code
+    expect(py).toMatch(/for .+ in /)
+    expect(py).not.toMatch(/sorted|statistics\.|mean\(|max\(|min\(/)
+    for (const lang of CODE_LANGS) expect(generateCode(lang, s.program!, s.tests).code.length).toBeGreaterThan(20)
+    expect(generateCode('java', s.program!, s.tests).code).not.toMatch(/\(int\) \(5\)/)
+    expect(generateCode('go', s.program!, s.tests).code).toMatch(/make\(\[\]float64, 5\)/)
   })
   it('mismas restricciones con otras cantidades', () => {
     const r = analyzeStatement(GRADES5)
@@ -94,6 +98,42 @@ describe('fidelidad: máximo subarreglo', () => {
     expect(first).toEqual(xs)
     expect(first[0]).not.toBe(2)
   })
+function forNesting(body: Stmt[], d = 0): number {
+  let m = d
+  for (const s of body) {
+    if (s.k === 'for' || s.k === 'each') m = Math.max(m, forNesting(s.body, d + 1))
+    else if (s.k === 'if') m = Math.max(m, forNesting(s.then, d), forNesting(s.else ?? [], d))
+    else if (s.k === 'while') m = Math.max(m, forNesting(s.body, d))
+  }
+  return m
+}
+
+function pythonForNesting(code: string): number {
+  const stack: number[] = []
+  let max = 0
+  for (const line of code.split('\n')) {
+    if (!line.trim() || line.trim().startsWith('#')) continue
+    const indent = line.match(/^ */)?.[0].length ?? 0
+    while (stack.length && indent <= stack.at(-1)!) stack.pop()
+    if (/^\s*for /.test(line)) {
+      stack.push(indent)
+      max = Math.max(max, stack.length)
+    }
+  }
+  return max
+}
+
+function mulberry(seed: number) {
+  let a = seed >>> 0
+  return () => {
+    a += 0x6d2b79f5
+    let t = a
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
   it('longitud entre L y R ≠ Kadane', () => {
     const data = [5, -3, 4]
     expect(bruteWindow(data, 2, 2)).toBe(2)
@@ -120,6 +160,53 @@ describe('fidelidad: máximo subarreglo', () => {
   it('todos negativos: Kadane y ventana coinciden con el oráculo', () => {
     runOk('Suma máxima de subarreglo de -3, -1, -2', [[-3, -1, -2]], -1)
     runOk('Máxima suma de un subarreglo de longitud 2 de -3, -1, -2', [[-3, -1, -2], 2], bruteWindow([-3, -1, -2], 2, 2))
+  })
+  it('L–R es O(n) en IR, código emitido y pasos', () => {
+    const text = 'Máxima suma de un subarreglo de longitud entre 2 y 4 de 1, -2, 3, 4, -1, 2'
+    const s = solve(text, 'auto')
+    expect(s.status).toBe('ok')
+    expect(s.strategy).toBe('ventanas')
+    expect(s.design?.complexity.time).toBe('O(n)')
+    expect(forNesting(s.program!.fns[0]!.body)).toBe(1)
+    const py = generateCode('python', s.program!, s.tests).code
+    const js = generateCode('javascript', s.program!, s.tests).code
+    expect(pythonForNesting(py)).toBe(1)
+    expect(py).toMatch(/while /)
+    expect(js).toMatch(/while \(/)
+    expect(py).not.toMatch(/for .+:\n(?:.*\n)*?        for /)
+    const small = runProgram(s.program!, [xs, 2, 4])
+    expect(small.ok).toBe(true)
+    const a = Array.from({ length: 80 }, (_, i) => ((i * 7) % 11) - 5)
+    const b = Array.from({ length: 160 }, (_, i) => ((i * 7) % 11) - 5)
+    const ra = runProgram(s.program!, [a, 2, 6])
+    const rb = runProgram(s.program!, [b, 2, 6])
+    expect(ra.ok && rb.ok).toBe(true)
+    expect(rb.steps / ra.steps).toBeLessThan(3)
+    expect(rb.steps / ra.steps).toBeGreaterThan(1.5)
+  })
+  it('L–R coincide con fuerza bruta: aleatorios, todos negativos, L=R, L=1 R=n, sumas grandes', () => {
+    const s = solve('Máxima suma de un subarreglo de longitud entre 2 y 4 de 1, -2, 3', 'auto')
+    expect(s.status).toBe('ok')
+    const rnd = mulberry(20261024)
+    for (let t = 0; t < 24; t++) {
+      const n = 4 + Math.floor(rnd() * 10)
+      const xs = Array.from({ length: n }, () => Math.floor(rnd() * 21) - 10)
+      const L = 1 + Math.floor(rnd() * n)
+      const R = L + Math.floor(rnd() * (n - L + 1))
+      const r = runProgram(s.program!, [xs, L, R])
+      expect(r.ok && sameValue(r.value, bruteWindow(xs, L, R)), JSON.stringify({ xs, L, R })).toBe(true)
+    }
+    for (const [data, L, R] of [
+      [[-9, -4, -7, -1, -8], 1, 3],
+      [[5, -3, 4], 2, 2],
+      [[1, -2, 3, 4, -1, 2], 1, 6],
+      [[3000000000, -1000000000, 4000000000], 1, 3],
+    ] as [number[], number, number][]) {
+      const r = runProgram(s.program!, [data, L, R])
+      expect(r.ok && sameValue(r.value, bruteWindow(data, L, R)), JSON.stringify({ data, L, R })).toBe(true)
+    }
+    const big = runProgram(s.program!, [[3000000000, -1000000000, 4000000000], 1, 3])
+    expect(big.ok && (big.value as number) > 2147483647).toBe(true)
   })
 })
 
@@ -156,6 +243,16 @@ describe('fidelidad: variantes no implementadas', () => {
     expect(detectKind('Todas las ocurrencias de 4 en 4, 9, 4, 1')?.id).toBe('search')
     expect(solve('Todas las ocurrencias de 4 en 4, 9, 4, 1', 'auto').status).toBe('unsupported')
   })
+  it('recurrencia de dos índices no inventa d ni n', () => {
+    const t = 'Dada a_(m+n) = a_m + a_n + y*m*n, a_1 = 1, calcular a_x'
+    const s = solve(t, 'auto')
+    expect(s.status).toBe('unsupported')
+    expect(s.program).toBeUndefined()
+    const dump = JSON.stringify(s)
+    expect(dump).not.toMatch(/d = 4/)
+    expect(dump).not.toMatch(/"n": 10/)
+    expect(s.limitation).toMatch(/recurrenc|no se representan|no se inventan/i)
+  })
 })
 
 describe('fidelidad: código y oráculo en casos chicos', () => {
@@ -166,5 +263,14 @@ describe('fidelidad: código y oráculo en casos chicos', () => {
       expect(() => validateProgram(s.program!)).not.toThrow()
       for (const lang of CODE_LANGS) expect(generateCode(lang, s.program!, s.tests).code.length).toBeGreaterThan(20)
     }
+  })
+  it('notas: seudocódigo lista las cinco medidas', () => {
+    const s = solve(GRADES12, 'auto')
+    expect(s.status).toBe('ok')
+    const pseudo = toPseudocode(s.program!).map((l) => l.text).join('\n')
+    expect(pseudo).toMatch(/LISTA\(5/)
+    expect(pseudo).toMatch(/salida\[0\]/)
+    expect(pseudo).toMatch(/PARA CADA/)
+    expect((pseudo.match(/PARA CADA/g) ?? []).length).toBe(1)
   })
 })

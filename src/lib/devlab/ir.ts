@@ -47,6 +47,8 @@ export type Stmt = Meta &
     | { k: 'set'; name: string; value: Expr }
     /** Copia una lista a una variable local (la entrada no se modifica). */
     | { k: 'copy'; name: string; type: ListType; from: string }
+    /** Reserva una lista local de longitud `len`, rellena con `fill`. */
+    | { k: 'alloc'; name: string; type: ListType; len: Expr; fill: Expr }
     | { k: 'setAt'; list: string; index: Expr; value: Expr }
     | { k: 'if'; cond: Expr; then: Stmt[]; else?: Stmt[] }
     /** Rango entero inclusivo: from, from+1, …, to. */
@@ -130,6 +132,7 @@ export const call = (fn: string, ...args: Expr[]): Expr => ({ k: 'call', fn, arg
 export const let_ = (name: string, type: Scalar, value: Expr, meta: Meta = {}): Stmt => ({ k: 'let', name, type, value, ...meta })
 export const set = (name: string, value: Expr, meta: Meta = {}): Stmt => ({ k: 'set', name, value, ...meta })
 export const copy = (name: string, type: ListType, from: string, meta: Meta = {}): Stmt => ({ k: 'copy', name, type, from, ...meta })
+export const alloc = (name: string, type: ListType, len: Expr, fill: Expr, meta: Meta = {}): Stmt => ({ k: 'alloc', name, type, len, fill, ...meta })
 export const setAt = (list: string, index: Expr, value: Expr, meta: Meta = {}): Stmt => ({ k: 'setAt', list, index, value, ...meta })
 export const if_ = (cond: Expr, then: Stmt[], els?: Stmt[], meta: Meta = {}): Stmt => ({ k: 'if', cond, then, else: els, ...meta })
 export const for_ = (name: string, from: Expr, to: Expr, body: Stmt[], meta: Meta = {}): Stmt => ({ k: 'for', name, from, to, body, ...meta })
@@ -304,6 +307,8 @@ export function usesVar(body: Stmt[], name: string): boolean {
         return exprUses(s.cond, name) || usesVar(s.body, name)
       case 'copy':
         return s.from === name
+      case 'alloc':
+        return exprUses(s.len, name) || exprUses(s.fill, name)
       case 'setAt':
         return s.list === name || exprUses(s.index, name) || exprUses(s.value, name)
       default:
@@ -332,6 +337,14 @@ function checkBody(body: Stmt[], env: Env, fn: Fn, p: Program, params: Set<strin
         }
         const src = scope.get(s.from)
         if (src !== s.type) throw new IRError(`No se puede copiar ${s.from} como ${s.type}`)
+        scope.set(s.name, s.type)
+        break
+      }
+      case 'alloc': {
+        if (!NAME.test(s.name)) throw new IRError(`Nombre inválido: ${s.name}`)
+        if (scope.has(s.name)) throw new IRError(`Variable redeclarada: ${s.name}`)
+        if (typeOf(s.len, scope, p) !== 'int') throw new IRError('La longitud de alloc debe ser entera')
+        if (typeOf(s.fill, scope, p) !== elemOf(s.type)) throw new IRError(`Tipo incorrecto al rellenar ${s.name}`)
         scope.set(s.name, s.type)
         break
       }
@@ -430,6 +443,7 @@ export type Feature =
   | 'helper'
   | 'setAt'
   | 'listCopy'
+  | 'listAlloc'
   | 'listRet'
   | 'concat'
   | 'slice'
@@ -500,6 +514,11 @@ export function features(p: Program): Set<Feature> {
       if (s.k === 'let' || s.k === 'set' || s.k === 'return') ex(s.value, self)
       if (s.k === 'let' && s.type === 'float') f.add('float')
       if (s.k === 'copy') f.add('listCopy').add('list')
+      if (s.k === 'alloc') {
+        f.add('listAlloc').add('list')
+        ex(s.len, self)
+        ex(s.fill, self)
+      }
       if (s.k === 'setAt') {
         f.add('setAt')
         ex(s.index, self)

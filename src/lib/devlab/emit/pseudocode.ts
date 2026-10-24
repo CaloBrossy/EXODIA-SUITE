@@ -95,6 +95,9 @@ export function toPseudocode(p: Program): PseudoLine[] {
         case 'copy':
           push(d, `${s.name} ← COPIA(${s.from})`, s.step)
           break
+        case 'alloc':
+          push(d, `${s.name} ← LISTA(${pseudoExpr(s.len)}, ${pseudoExpr(s.fill)})`, s.step)
+          break
         case 'setAt':
           push(d, `${s.list}[${pseudoExpr(s.index)}] ← ${pseudoExpr(s.value)}`, s.step)
           break

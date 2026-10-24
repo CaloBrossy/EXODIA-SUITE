@@ -1,13 +1,13 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { CheckCircle2, Play, XCircle } from 'lucide-react'
+import { CheckCircle2, Play, Plus, X, XCircle } from 'lucide-react'
 import { Tex } from '@/components/Markdown'
-import { Button, cx, Input, Select } from '@/components/ui'
+import { Button, cx, Input, Select, Textarea } from '@/components/ui'
 import { entryFn } from '@/lib/devlab/ir'
 import { formatValue, parseArg, runProgram, sameValue, type RunResult } from '@/lib/devlab/interpreter'
 import { toPseudocode } from '@/lib/devlab/emit/pseudocode'
 import { CODE_LANGS, generateCode, testLabel, type CodeLang } from '@/lib/devlab/emit/code'
 import { explainConstructs, LANGS, pseudoDifferences, type LangId } from '@/lib/devlab/languages'
-import type { Solution } from '@/lib/devlab/types'
+import type { Analysis, Solution } from '@/lib/devlab/types'
 import { CodeBlock } from './CodeBlock'
 
 export function List({ title, items, tone }: { title: string; items: ReactNode[]; tone?: 'warn' | 'muted' }) {
@@ -31,21 +31,70 @@ function Note({ children }: { children: ReactNode }) {
   return <p className="rounded-lg border border-accent/25 bg-accent/5 px-3 py-2 text-sm">{children}</p>
 }
 
-export function ProblemStage({ sol }: { sol: Solution }) {
-  const a = sol.analysis
+export function statementFromAnalysis(a: Analysis): string {
+  let head = a.summary.trim()
+  const assigns = a.known.flatMap((k) => {
+    const m = k.trim().match(/^(.+?)\s*=\s*(.+)$/)
+    return m ? [{ name: m[1]!.trim(), value: m[2]!.trim() }] : []
+  })
+  for (const { name, value } of assigns) {
+    const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    head = head.replace(new RegExp(`(${esc}\\s*=\\s*)([^,;.\\n]+)`, 'gi'), `$1${value}`)
+  }
+  const n = assigns.find((x) => /^n$/i.test(x.name))
+  if (n) head = head.replace(/\b(t[eé]rmino)\s+\d+/gi, `$1 ${n.value}`)
+  head = head.replace(/a₁/g, 'a_1').replace(/aₙ/g, 'a_n')
+  const facts = a.known.map((x) => x.trim().replace(/a₁/g, 'a_1').replace(/aₙ/g, 'a_n')).filter(Boolean)
+  return [head, ...facts].filter(Boolean).join('\n')
+}
+
+function EditableList({ title, items, onChange, tone }: { title: string; items: string[]; onChange: (xs: string[]) => void; tone?: 'warn' }) {
+  return (
+    <div>
+      <h4 className="mb-1 font-mono text-[11px] tracking-[0.14em] text-muted uppercase">{title}</h4>
+      <ul className={cx('flex flex-col gap-1', tone === 'warn' && 'text-amber-500')}>
+        {items.map((x, i) => (
+          <li key={i} className="flex items-center gap-1">
+            <Input value={x} aria-label={`${title} ${i + 1}`} onChange={(e) => onChange(items.map((y, j) => (j === i ? e.target.value : y)))} />
+            <Button size="icon" variant="ghost" aria-label={`Quitar ${title} ${i + 1}`} onClick={() => onChange(items.filter((_, j) => j !== i))}>
+              <X size={13} />
+            </Button>
+          </li>
+        ))}
+      </ul>
+      <Button size="sm" variant="ghost" className="mt-1" onClick={() => onChange([...items, ''])}>
+        <Plus size={13} /> Añadir
+      </Button>
+    </div>
+  )
+}
+
+export function ProblemStage({ sol, onApply }: { sol: Solution; onApply: (text: string) => void }) {
+  const [a, setA] = useState<Analysis>(() => structuredClone(sol.analysis))
+  const dirty = JSON.stringify(a) !== JSON.stringify(sol.analysis)
+  const set = <K extends keyof Analysis>(k: K, v: Analysis[K]) => setA((s) => ({ ...s, [k]: v }))
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-[15px]">{a.summary}</p>
-      {a.goal && <Note><span className="text-muted">Objetivo: </span>{a.goal}</Note>}
+      <Textarea rows={3} value={a.summary} aria-label="Problema" onChange={(e) => set('summary', e.target.value)} />
+      <div className="rounded-lg border border-accent/25 bg-accent/5 px-3 py-2">
+        <span className="mb-1 block text-xs text-muted">Objetivo</span>
+        <Input value={a.goal} aria-label="Objetivo" onChange={(e) => set('goal', e.target.value)} />
+      </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <List title="Datos conocidos" items={a.known} />
-        <List title="Incógnitas" items={a.unknown} />
-        <List title="Restricciones" items={a.constraints} />
-        <List title="Condiciones" items={a.conditions} />
-        <List title="Casos límite" items={a.edgeCases} />
-        <List title="Supuestos explícitos" items={a.assumptions} tone="warn" />
+        <EditableList title="Datos conocidos" items={a.known} onChange={(xs) => set('known', xs)} />
+        <EditableList title="Incógnitas" items={a.unknown} onChange={(xs) => set('unknown', xs)} />
+        <EditableList title="Restricciones" items={a.constraints} onChange={(xs) => set('constraints', xs)} />
+        <EditableList title="Condiciones" items={a.conditions} onChange={(xs) => set('conditions', xs)} />
+        <EditableList title="Casos límite" items={a.edgeCases} onChange={(xs) => set('edgeCases', xs)} />
+        <EditableList title="Supuestos explícitos" items={a.assumptions} onChange={(xs) => set('assumptions', xs)} tone="warn" />
       </div>
       <List title="Ambigüedades" items={a.ambiguities} tone="warn" />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted">Editá un dato erróneo y aplicá: se reinterpreta el enunciado y se regeneran matemática, algoritmo y código.</p>
+        <Button variant="primary" disabled={!dirty || !a.summary.trim()} onClick={() => onApply(statementFromAnalysis(a))}>
+          Aplicar y regenerar
+        </Button>
+      </div>
     </div>
   )
 }

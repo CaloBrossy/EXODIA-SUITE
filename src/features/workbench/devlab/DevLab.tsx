@@ -81,6 +81,12 @@ function Solver({ lang, setLang, openGuide }: { lang: LangId; setLang: (l: LangI
     setDraft(text)
     setSession({ text: text.trim(), kind, stage: 'problem', revealed: 0 })
   }
+  const applyAnalysis = (text: string) => {
+    const t = text.trim()
+    if (!t) return
+    setDraft(t)
+    setSession((s) => (s ? { ...s, text: t, strategy: undefined, stage: 'problem' } : { text: t, kind, stage: 'problem', revealed: 0 }))
+  }
   const load = (r: DevProblem) => {
     setDraft(r.text)
     const k = r.kind === 'auto' || isKind(r.kind) ? r.kind : 'auto'
@@ -173,6 +179,7 @@ function Solver({ lang, setLang, openGuide }: { lang: LangId; setLang: (l: LangI
               lang={lang}
               setLang={setLang}
               openGuide={openGuide}
+              onApply={applyAnalysis}
             />
           )
         ) : (
@@ -210,7 +217,7 @@ function Solver({ lang, setLang, openGuide }: { lang: LangId; setLang: (l: LangI
   )
 }
 
-function Workspace({ session, setSession, sol, mode, lang, setLang, openGuide }: {
+function Workspace({ session, setSession, sol, mode, lang, setLang, openGuide, onApply }: {
   session: Session
   setSession: (f: (s: Session | null) => Session | null) => void
   sol: NonNullable<ReturnType<typeof solve>>
@@ -218,6 +225,7 @@ function Workspace({ session, setSession, sol, mode, lang, setLang, openGuide }:
   lang: LangId
   setLang: (l: LangId) => void
   openGuide: (l: LangId) => void
+  onApply: (text: string) => void
 }) {
   const idx = STAGES.findIndex((s) => s.id === session.stage)
   const unlocked = (i: number) => mode === 'consult' || i <= session.revealed
@@ -230,7 +238,7 @@ function Workspace({ session, setSession, sol, mode, lang, setLang, openGuide }:
   const render = (id: StageId) => {
     switch (id) {
       case 'problem':
-        return <ProblemStage sol={sol} />
+        return <ProblemStage sol={sol} onApply={onApply} />
       case 'math':
         return <MathStage sol={sol} />
       case 'algorithm':

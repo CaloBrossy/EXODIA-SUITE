@@ -177,6 +177,9 @@ abstract class Emitter {
   protected copyStmt(name: string, from: string): string[] {
     return [`${this.varName(name)} = ${this.varName(from)}.slice()`]
   }
+  protected allocStmt(name: string, _type: ListType, len: Expr, fill: Expr): string[] {
+    return [`${this.varName(name)} = Array(${this.expr(len).s}).fill(${this.expr(fill).s})`]
+  }
   protected setAtStmt(list: string, index: Expr, value: Expr): string {
     return `${this.varName(list)}[${this.expr(index).s}] = ${this.expr(value).s}`
   }
@@ -233,6 +236,10 @@ abstract class Emitter {
       case 'copy':
         this.lists.set(s.name, s.type)
         this.copyStmt(s.name, s.from).forEach((l) => this.line(l.endsWith(this.semi) || !this.semi ? l : `${l}${this.semi}`))
+        break
+      case 'alloc':
+        this.lists.set(s.name, s.type)
+        this.allocStmt(s.name, s.type, s.len, s.fill).forEach((l) => this.line(l.endsWith(this.semi) || !this.semi ? l : `${l}${this.semi}`))
         break
       case 'setAt':
         this.line(`${this.setAtStmt(s.list, s.index, s.value)}${this.semi}`)
@@ -402,6 +409,9 @@ class PythonEmitter extends Emitter {
   protected copyStmt(name: string, from: string): string[] {
     return [`${this.varName(name)} = list(${this.varName(from)})`]
   }
+  protected allocStmt(name: string, _type: ListType, len: Expr, fill: Expr): string[] {
+    return [`${this.varName(name)} = [${this.expr(fill).s}] * ${this.paren(this.expr(len), 6, true)}`]
+  }
   protected sliceExpr(str: string, from: Expr, to: Expr): Code {
     return atom(`${this.varName(str)}[${this.expr(from).s}:${this.expr(to).s}]`)
   }
@@ -533,6 +543,9 @@ class JsEmitter extends Emitter {
   protected copyStmt(name: string, from: string): string[] {
     return [`let ${name} = ${from}.slice()`]
   }
+  protected allocStmt(name: string, _type: ListType, len: Expr, fill: Expr): string[] {
+    return [`let ${name} = Array(${this.expr(len).s}).fill(${this.expr(fill).s})`]
+  }
   protected constant(name: 'pi' | 'e') {
     return name === 'pi' ? 'Math.PI' : 'Math.E'
   }
@@ -623,6 +636,10 @@ class JavaEmitter extends Emitter {
   protected copyStmt(name: string, from: string): string[] {
     const t = this.lists.get(from) ?? this.fn.params.find((x) => x.name === from)?.type
     return [`${this.ty(t as Type)} ${name} = java.util.Arrays.copyOf(${from}, ${from}.length)`]
+  }
+  protected allocStmt(name: string, type: ListType, len: Expr, fill: Expr): string[] {
+    const n = len.k === 'int' ? this.intLit(len.v) : `(int) (${this.expr(len).s})`
+    return [`${this.ty(type)} ${name} = new ${this.ty(elemOf(type))}[${n}]`, `java.util.Arrays.fill(${name}, ${this.expr(fill).s})`]
   }
   protected sliceExpr(str: string, from: Expr, to: Expr): Code {
     return atom(`${str}.substring((int) ${this.wrap(from, 8)}, (int) ${this.wrap(to, 8)})`)
@@ -745,6 +762,11 @@ class CEmitter extends Emitter {
     const n = this.varName(name)
     const f = this.varName(from)
     return [`${el} ${n}[${f}_len == 0 ? 1 : ${f}_len];`, `size_t ${n}_len = ${f}_len;`, `for (size_t i = 0; i < ${f}_len; i++) ${n}[i] = ${f}[i];`]
+  }
+  protected allocStmt(name: string, type: ListType, len: Expr, fill: Expr): string[] {
+    const n = this.varName(name)
+    const m = this.expr(len).s
+    return [`${this.ty(elemOf(type))} ${n}[(size_t) (${m}) == 0 ? 1 : (size_t) (${m})];`, `size_t ${n}_len = (size_t) (${m});`, `for (size_t i = 0; i < ${n}_len; i++) ${n}[i] = ${this.expr(fill).s};`]
   }
   protected setAtStmt(list: string, index: Expr, value: Expr): string {
     return `${this.varName(list)}[(size_t) (${this.expr(index).s})] = ${this.expr(value).s}`
@@ -955,6 +977,11 @@ class CppEmitter extends Emitter {
   protected copyStmt(name: string, from: string): string[] {
     return [`auto ${this.varName(name)} = ${this.varName(from)}`]
   }
+  protected allocStmt(name: string, type: ListType, len: Expr, fill: Expr): string[] {
+    this.uses.add('vector')
+    const el = type === 'int[]' ? 'long long' : 'double'
+    return [`std::vector<${el}> ${this.varName(name)}(static_cast<std::size_t>(${this.expr(len).s}), ${this.expr(fill).s})`]
+  }
   protected setAtStmt(list: string, index: Expr, value: Expr): string {
     return `${this.varName(list)}[static_cast<std::size_t>(${this.expr(index).s})] = ${this.expr(value).s}`
   }
@@ -1075,6 +1102,10 @@ class CSharpEmitter extends Emitter {
   protected copyStmt(name: string, from: string): string[] {
     const t = this.ty(this.listType(from))
     return [`${t} ${this.varName(name)} = (${t})${this.varName(from)}.Clone()`]
+  }
+  protected allocStmt(name: string, type: ListType, len: Expr, fill: Expr): string[] {
+    const n = this.varName(name)
+    return [`${this.ty(type)} ${n} = new ${this.ty(elemOf(type))}[(int) (${this.expr(len).s})]`, `for (int _ai = 0; _ai < ${n}.Length; _ai++) ${n}[_ai] = ${this.expr(fill).s}`]
   }
   protected lenExpr(list: string) {
     return atom(`${this.varName(list)}.Length`)
@@ -1326,6 +1357,11 @@ class GoEmitter extends Emitter {
   protected copyStmt(name: string, from: string): string[] {
     return [`${name} := append(${this.ty(this.listType(from))}(nil), ${from}...)`]
   }
+  protected allocStmt(name: string, type: ListType, len: Expr, fill: Expr): string[] {
+    const made = `${name} := make(${this.ty(type)}, ${this.expr(len).s})`
+    if ((fill.k === 'int' || fill.k === 'float') && fill.v === 0) return [made]
+    return [made, `for i := range ${name} {`, `${this.indentUnit}${name}[i] = ${this.expr(fill).s}`, '}']
+  }
   protected lenExpr(list: string) {
     return this.expr({ k: 'len', list })
   }
@@ -1444,6 +1480,9 @@ class RustEmitter extends Emitter {
   protected copyStmt(name: string, from: string): string[] {
     return [`let mut ${this.varName(name)} = ${this.varName(from)}.to_vec()`]
   }
+  protected allocStmt(name: string, _type: ListType, len: Expr, fill: Expr): string[] {
+    return [`let mut ${this.varName(name)} = vec![${this.expr(fill).s}; ${this.wrap(len, 8)} as usize]`]
+  }
   ty(t: Type, ret = false) {
     if (t === 'int[]') return ret ? 'Vec<i64>' : '&[i64]'
     if (t === 'float[]') return ret ? 'Vec<f64>' : '&[f64]'
@@ -1551,6 +1590,9 @@ class PhpEmitter extends Emitter {
   }
   protected copyStmt(name: string, from: string): string[] {
     return [`$${name} = $${from}`]
+  }
+  protected allocStmt(name: string, _type: ListType, len: Expr, fill: Expr): string[] {
+    return [`$${name} = array_fill(0, ${this.expr(len).s}, ${this.expr(fill).s})`]
   }
   protected lenExpr(list: string) {
     return atom(this.isStrName(list) ? `strlen($${list})` : `count($${list})`)

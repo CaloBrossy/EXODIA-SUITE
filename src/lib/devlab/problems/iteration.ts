@@ -37,6 +37,7 @@ type Variant = 'factorial' | 'suma' | 'fibonacci' | 'primo' | 'mcd' | 'mcm' | 'a
 
 function variantOf(text: string): Variant | null {
   const t = norm(text)
+  if (/a\s*_?\s*[\(\{\[]\s*[a-z]\s*\+\s*[a-z]/.test(t)) return null
   if (/factorial|\d\s*!/.test(t)) return 'factorial'
   if (/fibonacci/.test(t)) return 'fibonacci'
   if (/primo/.test(t)) return 'primo'
@@ -791,6 +792,8 @@ function mcm(text: string, _strategyId?: string): Solution {
 const SEQ_N = 'n debe ser al menos 1'
 
 function sequence(text: string, geometric: boolean, strategyId?: string): Solution {
+  if (/a\s*_?\s*[\(\{\[]\s*[a-z]\s*\+\s*[a-z]/.test(norm(text)))
+    return unsupported(KIND, 'Sucesión', 'Las recurrencias de dos índices con parámetros simbólicos no se representan en esta versión. No se inventan d, n ni demás constantes.')
   const strategies: Strategy[] = [
     { id: 'formula', label: 'Término general', summary: geometric ? 'aₙ = a₁ · rⁿ⁻¹ en un paso.' : 'aₙ = a₁ + (n − 1) · d en un paso.' },
     { id: 'iterativo', label: 'Construcción paso a paso', summary: geometric ? 'Parte de a₁ y multiplica por r, n − 1 veces.' : 'Parte de a₁ y suma d, n − 1 veces.' },

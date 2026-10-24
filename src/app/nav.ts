@@ -12,7 +12,7 @@ export interface NavItem {
 }
 
 export const NAV: NavItem[] = [
-  { to: '/', label: 'Inicio', icon: Home, hint: 'Panel principal', anim: 'ico-bounce', tagline: 'Punto de partida' },
+  { to: '/app', label: 'Inicio', icon: Home, hint: 'Centro de operaciones', anim: 'ico-bounce', tagline: 'Punto de partida' },
   { to: '/notes', label: 'Notebook', icon: NotebookPen, hint: 'Cuaderno de investigación', anim: 'ico-draw', tagline: 'Registrar descubrimientos' },
   { to: '/knowledge', label: 'Knowledge Lab', icon: BookOpen, hint: 'Biblioteca de conceptos', anim: 'ico-flip', tagline: 'Explorar conceptos' },
   { to: '/workbench', label: 'Workbench', icon: Calculator, hint: 'Calculadoras y fórmulas', anim: 'ico-pop', tagline: 'Experimentar con cálculos' },
