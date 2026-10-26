@@ -167,6 +167,46 @@ export function evaluateExpression(input: string, opts: EvalOptions = {}): CalcV
   return toValue(raw)
 }
 
+/**
+ * Compila una vez una expresión de las variables dadas (misma lista blanca que evaluateExpression).
+ * Devuelve NaN donde no está definida en lugar de lanzar, para los métodos numéricos.
+ */
+export function compileExpression(input: string, variables: string[]): (scope: Record<string, number>) => number {
+  const expr = normalize(input)
+  if (!expr) throw new CalcError('La expresión está vacía')
+  if (expr.length > MAX_LENGTH) throw new CalcError('La expresión es demasiado larga')
+  let node: MathNode
+  try {
+    node = math.parse(expr)
+  } catch (e) {
+    throw new CalcError(`Sintaxis inválida: ${(e as Error).message}`)
+  }
+  validate(node, new Set(variables))
+  const code = applyAngleMode(node, 'rad').compile()
+  return (scope) => {
+    try {
+      const raw = code.evaluate(new Map(Object.entries(scope)))
+      if (typeof raw === 'number') return raw
+      if (math.typeOf(raw) === 'Complex') {
+        const c = raw as { re: number; im: number }
+        return Math.abs(c.im) <= 1e-12 * Math.max(1, Math.abs(c.re)) ? c.re : NaN
+      }
+      return NaN
+    } catch {
+      return NaN
+    }
+  }
+}
+
+/** LaTeX de una expresión para la vista previa (sin evaluarla). */
+export function expressionToTex(input: string): string {
+  const expr = normalize(input)
+  if (!expr) return ''
+  const node = math.parse(expr)
+  validate(node, new Set(freeSymbols(expr)))
+  return applyAngleMode(node, 'rad').toTex({ parenthesis: 'auto', implicit: 'hide' })
+}
+
 /** Símbolos libres (no constantes ni funciones) que aparecen en la expresión. */
 export function freeSymbols(input: string): string[] {
   const node = math.parse(normalize(input))

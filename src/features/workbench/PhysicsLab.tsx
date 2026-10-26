@@ -445,7 +445,12 @@ export default function PhysicsLab() {
         {section === 'kinematics' && <Pair la="MRU / MRUV" lb="Tiro oblicuo" a={<Mruv />} b={<Projectile />} />}
         {section === 'dynamics' && <Incline />}
         {section === 'energy' && <Pair la="Conservación de la energía" lb="Choques 1D" a={<Energy />} b={<Collision />} />}
-        {section === 'circuits' && <Pair la="Ley de Ohm" lb="Resistencias equivalentes" a={<Ohm />} b={<Resistors />} />}
+        {section === 'circuits' && (
+          <>
+            <Pair la="Ley de Ohm" lb="Resistencias equivalentes" a={<Ohm />} b={<Resistors />} />
+            <p className="text-sm text-muted">Divisores, mallas, Thévenin, transitorios y RLC están en <Link to="/workbench/circuits" className="underline">Circuitos</Link>.</p>
+          </>
+        )}
         {section === 'gases' && <Gases />}
         {section === 'atom' && <Pair la="Hidrógeno (Bohr)" lb="Modelos atómicos" a={<Bohr />} b={<ModelCards items={ATOMIC_MODELS} />} />}
         {section === 'particles' && <Particles />}

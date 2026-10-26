@@ -9,6 +9,8 @@ const MathTools = lazy(() => import('./MathTools'))
 const Formulas = lazy(() => import('./Formulas'))
 const DevLab = lazy(() => import('./devlab/DevLab'))
 const DataLab = lazy(() => import('./DataLab'))
+const Symbolic = lazy(() => import('./Symbolic'))
+const Circuits = lazy(() => import('./Circuits'))
 
 const TOOLS = [
   { id: 'calculator', label: 'Calculadora', el: Calculator },
@@ -17,6 +19,8 @@ const TOOLS = [
   { id: 'units', label: 'Unidades', el: UnitConverter },
   { id: 'formulas', label: 'Fórmulas', el: Formulas },
   { id: 'data', label: 'Gráficas', el: DataLab },
+  { id: 'symbolic', label: 'Simbólico', el: Symbolic },
+  { id: 'circuits', label: 'Circuitos', el: Circuits },
   { id: 'dev', label: 'Programación', el: DevLab },
 ] as const
 

@@ -38,6 +38,8 @@ const TOOLS: [string, string, string][] = [
   ['Pomodoro', '/focus', 'temporizador concentración'],
   ['Tareas', '/focus/tasks', 'pendientes'],
   ['Gráficas y ajuste de datos', '/workbench/data', 'regresión lineal mínimos cuadrados dispersión errores'],
+  ['Solver simbólico', '/workbench/symbolic', 'derivar integrar límites ecuaciones taylor'],
+  ['Análisis de circuitos', '/workbench/circuits', 'mallas thévenin transitorios rlc divisor'],
   ['Plan de estudios', '/focus/plan', 'carrera correlativas materias aprobadas promedio'],
 ]
 
