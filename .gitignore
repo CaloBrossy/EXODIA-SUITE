@@ -7,3 +7,5 @@ coverage
 .env
 .env.local
 .env.*.local
+
+landing-model/asdas/
