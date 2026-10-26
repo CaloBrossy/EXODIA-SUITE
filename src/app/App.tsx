@@ -19,6 +19,9 @@ const FocusPage = lazy(() => import('@/features/focus/FocusPage'))
 const SketchPage = lazy(() => import('@/features/sketch/SketchPage'))
 const ToolShelf = lazy(() => import('@/features/tools/ToolShelf'))
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'))
+const CalendarPage = lazy(() => import('@/features/calendar/CalendarPage'))
+const ReviewPage = lazy(() => import('@/features/review/ReviewPage'))
+const ExercisesPage = lazy(() => import('@/features/exercises/ExercisesPage'))
 const LandingPage = lazy(() => import('@/features/landing/LandingPage'))
 const AuthPage = lazy(() => import('@/features/auth/AuthPage'))
 
@@ -104,6 +107,9 @@ export function App() {
               <Route path="sketch/:id" element={<SketchPage />} />
               <Route path="tools" element={<ToolShelf />} />
               <Route path="settings" element={<SettingsPage />} />
+              <Route path="calendar" element={<CalendarPage />} />
+              <Route path="review" element={<ReviewPage />} />
+              <Route path="exercises" element={<ExercisesPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

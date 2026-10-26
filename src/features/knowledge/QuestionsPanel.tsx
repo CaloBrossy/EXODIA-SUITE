@@ -5,12 +5,16 @@ import { Check, RotateCcw, Trash2 } from 'lucide-react'
 import { db } from '@/db/db'
 import type { Question } from '@/db/models'
 import { addQuestion, deleteQuestion, setQuestionResolved, updateQuestion } from '@/services/knowledge'
+import { listCards } from '@/services/cards'
+import { proposeFromQuestion, skipExisting } from '@/lib/flashcards'
+import { ProposeCards } from '@/features/review/ProposeCards'
 import { useFeedback } from '@/components/feedback'
 import { Button, cx, Input, Textarea } from '@/components/ui'
 import { relativeTime } from '@/lib/text'
 
 function QuestionRow({ q, showOrigin }: { q: Question; showOrigin?: boolean }) {
   const { fail, confirm } = useFeedback()
+  const [drafts, setDrafts] = useState<ReturnType<typeof proposeFromQuestion> | null>(null)
   const [answer, setAnswer] = useState(q.answer)
   const [open, setOpen] = useState(false)
   const origin = useLiveQuery(async () => {
@@ -56,6 +60,15 @@ function QuestionRow({ q, showOrigin }: { q: Question; showOrigin?: boolean }) {
             <Button
               size="sm"
               variant="ghost"
+              onClick={() => {
+                void listCards().then((cards) => setDrafts(skipExisting(proposeFromQuestion(q), cards))).catch(fail)
+              }}
+            >
+              Crear tarjeta
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
               className="text-danger"
               onClick={async () => {
                 if (await confirm({ title: '¿Eliminar la pregunta?', danger: true, confirmLabel: 'Eliminar' })) deleteQuestion(q.id).catch(fail)
@@ -64,6 +77,7 @@ function QuestionRow({ q, showOrigin }: { q: Question; showOrigin?: boolean }) {
               <Trash2 size={13} /> Eliminar
             </Button>
           </div>
+          {drafts && <ProposeCards drafts={drafts} onClose={() => setDrafts(null)} />}
         </div>
       )}
     </li>

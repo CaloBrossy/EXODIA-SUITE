@@ -15,6 +15,9 @@ import { EntityPicker } from '@/components/EntityPicker'
 import { Markdown, Tex } from '@/components/Markdown'
 import { Button, ButtonLink, cx, Empty, ErrorText, Field, Input, Loading, Panel, Select, Tag, Textarea } from '@/components/ui'
 import { ResultBox } from './shared'
+import { ProposeCards } from '@/features/review/ProposeCards'
+import { proposeFromFormula, skipExisting } from '@/lib/flashcards'
+import { listCards } from '@/services/cards'
 
 function Evaluator({ f }: { f: Formula }) {
   const { fail, notify } = useFeedback()
@@ -63,6 +66,7 @@ function Evaluator({ f }: { f: Formula }) {
 function FormulaDetail({ f }: { f: Formula }) {
   const navigate = useNavigate()
   const { fail, confirm } = useFeedback()
+  const [drafts, setDrafts] = useState<ReturnType<typeof proposeFromFormula> | null>(null)
   const concepts = useLiveQuery(() => db.concepts.bulkGet(f.conceptIds), [f.conceptIds.join()])
   const remove = async () => {
     if (!(await confirm({ title: `¿Eliminar «${f.name}»?`, danger: true, confirmLabel: 'Eliminar' }))) return
@@ -81,10 +85,12 @@ function FormulaDetail({ f }: { f: Formula }) {
           <h2 className="text-lg font-semibold">{f.name}</h2>
         </div>
         <div className="flex gap-1">
+          <Button size="sm" onClick={() => { void listCards().then((cards) => setDrafts(skipExisting(proposeFromFormula(f), cards))).catch(fail) }}>Crear tarjetas</Button>
           <ButtonLink size="sm" to={`/workbench/formulas/${f.id}?edit=1`}><Pencil size={13} /> Editar</ButtonLink>
           <Button size="icon" variant="ghost" aria-label="Eliminar" onClick={remove}><Trash2 size={14} /></Button>
         </div>
       </div>
+      {drafts && <ProposeCards drafts={drafts} onClose={() => setDrafts(null)} />}
       <div className="rounded-md border border-line px-4 py-3 text-lg"><Tex block expr={f.latex || '\\text{(sin expresión)}'} /></div>
       {f.description && <p className="text-sm">{f.description}</p>}
       {f.variables.length > 0 && (

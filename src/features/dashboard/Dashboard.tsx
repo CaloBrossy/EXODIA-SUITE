@@ -8,7 +8,13 @@ import { createNote } from '@/services/notes'
 import { useFeedback } from '@/components/feedback'
 import { ObservatoryCore } from '@/components/ObservatoryCore'
 import { Button, ButtonLink, Kbd, Panel } from '@/components/ui'
-import { formatLongDate, relativeTime, startOfDay } from '@/lib/text'
+import { addDays, expandEvents, nextExam } from '@/lib/calendar'
+import { listEvents } from '@/services/calendar'
+import { listCards, readNewLimit } from '@/services/cards'
+import { reviewQueue } from '@/lib/sm2'
+import { eligibilityMap, inPlan, planStats } from '@/lib/plan'
+import { EventKindLabel } from '@/db/models'
+import { formatDateTime, formatLongDate, relativeTime, startOfDay } from '@/lib/text'
 import { formatClock, PhaseLabel, remaining } from '@/lib/pomodoro'
 import { usePomodoro } from '@/hooks/usePomodoro'
 import { QuestionsPanel } from '@/features/knowledge/QuestionsPanel'
@@ -83,7 +89,8 @@ export default function Dashboard() {
   const [query, setQuery] = useState('')
   const data = useLiveQuery(async () => {
     const dayStart = startOfDay(Date.now())
-    const [notes, tasks, viewed, subjects, noteCount, conceptCount, todaySessions, someConcepts] = await Promise.all([
+    const now = Date.now()
+    const [notes, tasks, viewed, subjects, noteCount, conceptCount, todaySessions, someConcepts, events, cards, newLimit] = await Promise.all([
       db.notes.orderBy('updatedAt').reverse().limit(4).toArray(),
       db.tasks.toArray(),
       db.concepts.orderBy('lastViewedAt').reverse().limit(5).toArray(),
@@ -92,9 +99,13 @@ export default function Dashboard() {
       db.concepts.count(),
       db.sessions.where('startedAt').aboveOrEqual(dayStart - 86_400_000).toArray(),
       db.concepts.limit(5).toArray(),
+      listEvents(),
+      listCards(),
+      readNewLimit(),
     ])
     const work = todaySessions.filter((s) => s.phase === 'work' && s.endedAt >= dayStart)
     const recent = viewed.filter((c) => c.lastViewedAt)
+    const exam = nextExam(events, now)
     return {
       notes,
       tasks: sortTasks(tasks.filter((t) => !t.done)),
@@ -105,6 +116,12 @@ export default function Dashboard() {
       conceptCount,
       todayMinutes: work.reduce((a, s) => a + s.durationMs, 0) / 60_000,
       todaySessions: work.length,
+      upcoming: expandEvents(events, now, addDays(now, 7)).slice(0, 8),
+      exam,
+      eventsById: new Map(events.map((e) => [e.id, e])),
+      dueCards: reviewQueue(cards, now, newLimit),
+      career: subjects.some(inPlan) ? planStats(subjects.filter(inPlan), now) : null,
+      careerOpen: [...eligibilityMap(subjects.filter(inPlan)).values()].filter((e) => e.canCourse).length,
     }
   }, [])
 
@@ -186,6 +203,78 @@ export default function Dashboard() {
             ))}
           </ul>
         </div>
+      </section>
+
+      <section className="glass stagger flex flex-col gap-3 rounded-2xl p-4">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <p className="eyebrow">Próximos 7 días</p>
+            {data?.exam ? (
+              <p className="text-sm">
+                {EventKindLabel[data.exam.event.kind]} «{data.exam.event.title}» · {relativeTime(data.exam.occurrence.startAt)}
+              </p>
+            ) : (
+              <p className="text-sm text-muted">Sin parciales, finales ni entregas a la vista.</p>
+            )}
+          </div>
+          <ButtonLink size="sm" variant="ghost" to="/calendar">Calendario <ArrowRight size={13} /></ButtonLink>
+        </div>
+        {data && data.upcoming.length === 0 && <p className="text-sm text-muted">Nada agendado esta semana.</p>}
+        <ul className="flex flex-col">
+          {data?.upcoming.map((o) => {
+            const ev = data.eventsById.get(o.eventId)
+            if (!ev) return null
+            return (
+              <li key={`${o.eventId}-${o.startAt}`}>
+                <Link to={`/calendar?day=${o.dayKey}`} className="flex items-baseline gap-3 rounded-lg px-1 py-1 text-sm transition-colors hover:bg-sunken">
+                  <span className="w-36 shrink-0 font-mono text-[11px] text-muted">{ev.allDay ? o.dayKey : formatDateTime(o.startAt)}</span>
+                  <span className="min-w-0 flex-1 truncate">{ev.title}</span>
+                  <span className="shrink-0 text-xs text-muted">{EventKindLabel[ev.kind]}</span>
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      </section>
+
+      {data?.career && (
+        <section className="glass stagger flex flex-col gap-3 rounded-2xl p-4">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="eyebrow">Avance de la carrera</p>
+              <p className="text-sm">
+                {Math.round(data.career.progress * 100)}% · {data.career.approved}/{data.career.total} aprobadas
+                {data.career.average != null && ` · promedio ${data.career.average.toLocaleString('es', { maximumFractionDigits: 2 })}`}
+                {data.careerOpen > 0 && ` · ${data.careerOpen} para cursar`}
+              </p>
+            </div>
+            <ButtonLink size="sm" variant="ghost" to="/focus/plan">Plan <ArrowRight size={13} /></ButtonLink>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-sunken"><div className="h-full bg-accent" style={{ width: `${data.career.progress * 100}%` }} /></div>
+        </section>
+      )}
+
+      <section className="glass stagger flex flex-col gap-3 rounded-2xl p-4">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <p className="eyebrow">Tarjetas para repasar hoy</p>
+            <p className="text-sm">
+              {data ? `${data.dueCards.reviews.length} vencida${data.dueCards.reviews.length === 1 ? '' : 's'} · ${data.dueCards.news.length} nueva${data.dueCards.news.length === 1 ? '' : 's'}` : '…'}
+            </p>
+          </div>
+          <ButtonLink size="sm" variant="ghost" to="/review">Repaso <ArrowRight size={13} /></ButtonLink>
+        </div>
+        {data && data.dueCards.reviews.length + data.dueCards.news.length === 0 && <p className="text-sm text-muted">Nada vencido. Podés generar tarjetas desde un concepto.</p>}
+        <ul className="flex flex-col">
+          {data && [...data.dueCards.reviews, ...data.dueCards.news].slice(0, 6).map((c) => (
+            <li key={c.id}>
+              <Link to="/review" className="flex items-baseline gap-3 rounded-lg px-1 py-1 text-sm transition-colors hover:bg-sunken">
+                <span className="min-w-0 flex-1 truncate">{c.front}</span>
+                <span className="shrink-0 text-xs text-muted">{c.lastReviewedAt ? 'Repaso' : 'Nueva'}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <div className="stagger grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">

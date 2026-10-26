@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/db/db'
-import { matchesQuery } from '@/lib/text'
+import { formatDateTime, matchesQuery } from '@/lib/text'
+import { nextOccurrence } from '@/lib/calendar'
+import { EventKindLabel } from '@/db/models'
 import { cx, Kbd } from '@/components/ui'
 import { NAV } from './nav'
 
@@ -35,6 +37,8 @@ const TOOLS: [string, string, string][] = [
   ['Guía de estilo de lenguajes', '/workbench/dev?t=guia', 'convenciones nombres errores comunes'],
   ['Pomodoro', '/focus', 'temporizador concentración'],
   ['Tareas', '/focus/tasks', 'pendientes'],
+  ['Gráficas y ajuste de datos', '/workbench/data', 'regresión lineal mínimos cuadrados dispersión errores'],
+  ['Plan de estudios', '/focus/plan', 'carrera correlativas materias aprobadas promedio'],
 ]
 
 /** Evento global para abrir la búsqueda desde cualquier módulo; `detail` = texto inicial. */
@@ -49,7 +53,7 @@ export function CommandPalette({ open, initialQuery = '', onClose }: { open: boo
   const navigate = useNavigate()
 
   const data = useLiveQuery(
-    async () => (open ? { notes: await db.notes.toArray(), concepts: await db.concepts.toArray(), formulas: await db.formulas.toArray(), tools: await db.tools.toArray() } : null),
+    async () => (open ? { notes: await db.notes.toArray(), concepts: await db.concepts.toArray(), formulas: await db.formulas.toArray(), tools: await db.tools.toArray(), events: await db.events.toArray(), cards: await db.cards.toArray(), exercises: await db.exercises.toArray(), datasets: await db.datasets.toArray() } : null),
     [open],
   )
 
@@ -76,6 +80,27 @@ export function CommandPalette({ open, initialQuery = '', onClose }: { open: boo
       for (const c of data.concepts) if (matchesQuery(q, c.title, c.tags, c.summary)) out.push({ id: c.id, label: c.title, kind: 'Concepto', to: `/knowledge/${c.id}` })
       for (const n of data.notes) if (matchesQuery(q, n.title, n.content, n.tags)) out.push({ id: n.id, label: n.title || 'Sin título', kind: 'Nota', to: `/notes/${n.id}` })
       for (const f of data.formulas) if (matchesQuery(q, f.name, f.tags)) out.push({ id: f.id, label: f.name, kind: 'Fórmula', to: `/workbench/formulas/${f.id}` })
+      const now = Date.now()
+      for (const e of data.events) {
+        if (!matchesQuery(q, e.title, e.notes, e.location, EventKindLabel[e.kind])) continue
+        const occ = nextOccurrence(e, now)
+        if (!occ) continue
+        out.push({
+          id: `${e.id}-${occ.startAt}`,
+          label: `${e.title} · ${e.allDay ? occ.dayKey : formatDateTime(occ.startAt)}`,
+          kind: EventKindLabel[e.kind],
+          to: `/calendar?day=${occ.dayKey}`,
+        })
+      }
+      for (const c of data.cards) {
+        if (!matchesQuery(q, c.front, c.back, c.tags)) continue
+        out.push({ id: c.id, label: c.front.slice(0, 80), kind: 'Tarjeta', to: '/review?tab=tarjetas' })
+      }
+      for (const x of data.exercises) {
+        if (!matchesQuery(q, x.prompt, x.topic, x.source, x.tags)) continue
+        out.push({ id: x.id, label: x.prompt.slice(0, 80), kind: 'Ejercicio', to: '/exercises' })
+      }
+      for (const d of data.datasets) if (matchesQuery(q, d.name, d.notes)) out.push({ id: d.id, label: d.name, kind: 'Serie de datos', to: `/workbench/data/${d.id}` })
     }
     return out.slice(0, 40)
   }, [q, data])

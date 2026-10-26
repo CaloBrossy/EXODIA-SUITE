@@ -1,4 +1,4 @@
-import { BookOpen, Calculator, FlaskConical, Home, NotebookPen, PenTool, Settings, Target, Wrench, type LucideIcon } from 'lucide-react'
+import { BookOpen, Calculator, CalendarDays, FlaskConical, Home, ListChecks, NotebookPen, PenTool, Repeat, Settings, Target, Wrench, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -20,6 +20,9 @@ export const NAV: NavItem[] = [
   { to: '/sketch', label: 'Sketchpad', icon: PenTool, hint: 'Pizarras', anim: 'ico-wiggle', tagline: 'Dibujar ideas' },
   { to: '/tools', label: 'Tool Shelf', icon: Wrench, hint: 'Herramientas externas', anim: 'ico-swing', tagline: 'Herramientas externas' },
   { to: '/settings', label: 'Datos y ajustes', icon: Settings, hint: 'Exportar, importar, tema', anim: 'ico-spin', tagline: 'Datos y apariencia' },
+  { to: '/calendar', label: 'Calendario', icon: CalendarDays, hint: 'Clases, exámenes y estudio', anim: 'ico-flip', tagline: 'Planificar fechas' },
+  { to: '/review', label: 'Repaso', icon: Repeat, hint: 'Tarjetas y SM-2', anim: 'ico-flip', tagline: 'Memorizar con intervalos' },
+  { to: '/exercises', label: 'Ejercicios', icon: ListChecks, hint: 'Banco y simulados', anim: 'ico-pop', tagline: 'Practicar y examinar' },
 ]
 
 export const LabIcon = FlaskConical

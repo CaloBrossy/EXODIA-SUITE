@@ -2,8 +2,21 @@ import { db, SCHEMA_VERSION, TABLE_NAMES } from '@/db/db'
 import type { Database, Json } from '@/lib/database.types'
 import type {
   Calculation,
+  CalendarEvent,
+  Card,
+  CardOrigin,
+  CardRating,
+  CardReview,
   Concept,
+  ExamItem,
+  ExamRun,
+  Exercise,
+  ExerciseStatus,
+  PracticeResult,
   DevProblem,
+  EventKind,
+  EventRepeat,
+  EventStatus,
   FocusSession,
   Formula,
   FormulaVariable,
@@ -14,9 +27,11 @@ import type {
   Sketch,
   Stroke,
   Subject,
+  SubjectPlan,
   Task,
   ToolLink,
 } from '@/db/models'
+import { DatasetAxisSchema, DatasetRowSchema, DATASET_FITS, type Dataset, type DatasetAxis, type DatasetFit, SubjectPlanSchema } from '@/db/models'
 import { supabase } from '@/lib/supabase'
 import type { Backup } from './backup'
 import { exportData, importData } from './backup'
@@ -46,6 +61,7 @@ export function mapLocalToRemote(data: Backup['data'], userId: string) {
       objectives: s.objectives,
       notes: s.notes,
       archived: s.archived,
+      plan: (s.plan ?? null) as Json,
       seed: !!s.seed,
       created_at: iso(s.createdAt),
       updated_at: iso(s.updatedAt),
@@ -162,6 +178,86 @@ export function mapLocalToRemote(data: Backup['data'], userId: string) {
       seed: !!t.seed,
     })),
     kv: data.kv.map((k) => ({ key: k.key, user_id: userId, value: k.value as Json })),
+    events: data.events.map((e) => ({
+      id: e.id,
+      user_id: userId,
+      title: e.title,
+      kind: e.kind,
+      subject_id: fk(e.subjectId, subjects),
+      start_at: iso(e.startAt),
+      end_at: iso(e.endAt),
+      all_day: e.allDay,
+      repeat: e.repeat,
+      repeat_until: isoOpt(e.repeatUntil),
+      skip_on: e.skipOn,
+      location: e.location,
+      notes: e.notes,
+      status: e.status,
+      done_on: e.doneOn,
+      origin_id: e.originId ?? null,
+      series_id: e.seriesId ?? null,
+      created_at: iso(e.createdAt),
+      updated_at: iso(e.updatedAt),
+    })),
+    cards: data.cards.map((c) => ({
+      id: c.id,
+      user_id: userId,
+      front: c.front,
+      back: c.back,
+      subject_id: fk(c.subjectId, subjects),
+      tags: c.tags,
+      origin_kind: c.originKind,
+      origin_id: c.originId ?? null,
+      origin_updated_at: isoOpt(c.originUpdatedAt),
+      interval_days: c.intervalDays,
+      ease: c.ease,
+      reps: c.reps,
+      lapses: c.lapses,
+      due_at: iso(c.dueAt),
+      last_reviewed_at: isoOpt(c.lastReviewedAt),
+      created_at: iso(c.createdAt),
+      updated_at: iso(c.updatedAt),
+    })),
+    card_reviews: data.reviews.map((r) => ({
+      id: r.id,
+      user_id: userId,
+      card_id: r.cardId,
+      rating: r.rating,
+      interval_days: r.intervalDays,
+      ease: r.ease,
+      reviewed_at: iso(r.at),
+    })),
+    exercises: data.exercises.map((e) => ({
+      id: e.id,
+      user_id: userId,
+      prompt: e.prompt,
+      subject_id: fk(e.subjectId, subjects),
+      topic: e.topic,
+      difficulty: e.difficulty,
+      source: e.source,
+      solution: e.solution,
+      answer: e.answer,
+      status: e.status,
+      attempts: e.attempts,
+      last_attempt_ms: e.lastAttemptMs,
+      last_attempt_at: isoOpt(e.lastAttemptAt),
+      tags: e.tags,
+      concept_ids: e.conceptIds,
+      created_at: iso(e.createdAt),
+      updated_at: iso(e.updatedAt),
+    })),
+    exam_runs: data.examRuns.map((r) => ({
+      id: r.id,
+      user_id: userId,
+      subject_id: fk(r.subjectId, subjects),
+      topics: r.topics,
+      count: r.count,
+      limit_ms: r.limitMs,
+      started_at: iso(r.startedAt),
+      ended_at: isoOpt(r.endedAt),
+      items: r.items as Json,
+      created_at: iso(r.createdAt),
+    })),
     dev_problems: data.devProblems.map((p) => ({
       id: p.id,
       user_id: userId,
@@ -175,6 +271,20 @@ export function mapLocalToRemote(data: Backup['data'], userId: string) {
       revealed: p.revealed,
       created_at: iso(p.createdAt),
       updated_at: iso(p.updatedAt),
+    })),
+    datasets: data.datasets.map((d) => ({
+      id: d.id,
+      user_id: userId,
+      name: d.name,
+      subject_id: fk(d.subjectId, subjects),
+      notes: d.notes,
+      rows: d.rows as Json,
+      x_axis: d.xAxis as Json,
+      y_axis: d.yAxis as Json,
+      fit: d.fit,
+      degree: d.degree,
+      created_at: iso(d.createdAt),
+      updated_at: iso(d.updatedAt),
     })),
   }
 }
@@ -191,8 +301,26 @@ const ORDER = [
   'sketches',
   'tools',
   'kv',
+  'events',
+  'cards',
+  'card_reviews',
+  'exercises',
+  'exam_runs',
   'dev_problems',
+  'datasets',
 ] as const
+
+const MISSING_TABLE = /could not find the table|does not exist|schema cache/i
+
+export function isMissingRelation(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false
+  return error.code === 'PGRST205' || error.code === '42P01' || MISSING_TABLE.test(error.message ?? '')
+}
+
+let skippedRelations: string[] = []
+export function readSkippedRelations(): string[] {
+  return skippedRelations.slice()
+}
 
 async function upsert<T extends (typeof ORDER)[number]>(
   table: T,
@@ -203,12 +331,19 @@ async function upsert<T extends (typeof ORDER)[number]>(
   for (let i = 0; i < rows.length; i += CHUNK) {
     const chunk = rows.slice(i, i + CHUNK)
     const { error } = await supabase.from(table).upsert(chunk as never, { onConflict: conflict })
-    if (error) throw new StorageError(`No se pudo subir ${table}: ${error.message}`, error)
+    if (error) {
+      if (isMissingRelation(error)) {
+        skippedRelations.push(table)
+        return
+      }
+      throw new StorageError(`No se pudo subir ${table}: ${error.message}`, error)
+    }
   }
 }
 
 export async function pushLocalToSupabase(): Promise<Record<(typeof ORDER)[number], number>> {
   return guard('No se pudo subir a Supabase', async () => {
+    skippedRelations = []
     const uid = await currentUserId()
     const data = (await exportData()).data
     data.kv = data.kv.filter((k) => k.key !== SYNC_USER_KEY)
@@ -246,12 +381,52 @@ function strokes(v: Json): Stroke[] {
 }
 
 const priority = (v: string): Priority => (v === 'low' || v === 'high' || v === 'medium' ? v : 'medium')
+const KIND_SET = new Set<string>(['clase', 'parcial', 'entrega', 'final', 'laboratorio', 'estudio', 'otro'])
+const eventKind = (v: string): EventKind | null => (KIND_SET.has(v) ? (v as EventKind) : null)
+const eventRepeat = (v: string): EventRepeat | null => (v === 'none' || v === 'weekly' ? v : null)
+const eventStatus = (v: string): EventStatus | null => (v === 'pendiente' || v === 'hecho' ? v : null)
+const ORIGIN_SET = new Set<string>(['manual', 'concept', 'formula', 'question'])
+const cardOrigin = (v: string): CardOrigin | null => (ORIGIN_SET.has(v) ? (v as CardOrigin) : null)
+const RATING_SET = new Set<string>(['again', 'hard', 'good', 'easy'])
+const cardRating = (v: string): CardRating | null => (RATING_SET.has(v) ? (v as CardRating) : null)
+const STATUS_SET = new Set<string>(['sin_intentar', 'resuelto', 'fallo', 'repasar'])
+const exerciseStatus = (v: string): ExerciseStatus | null => (STATUS_SET.has(v) ? (v as ExerciseStatus) : null)
+const RESULT_SET = new Set<string>(['bien', 'mal', 'ayuda'])
+const practiceResult = (v: string | null): PracticeResult | null => (v && RESULT_SET.has(v) ? (v as PracticeResult) : null)
+
+function examItems(v: Json): ExamItem[] {
+  if (!Array.isArray(v)) return []
+  return v.flatMap((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return []
+    const o = item as Record<string, Json | undefined>
+    const exerciseId = typeof o.exerciseId === 'string' ? o.exerciseId : ''
+    if (!exerciseId) return []
+    const result = typeof o.result === 'string' || o.result == null ? practiceResult(typeof o.result === 'string' ? o.result : null) : null
+    const ms = typeof o.ms === 'number' && o.ms >= 0 ? o.ms : 0
+    return [{ exerciseId, result, ms }]
+  })
+}
 
 /** true si la fila remota es estrictamente más nueva. Empate o sin marca: se queda la local. */
 export function takeRemote(localStamp: number | null, remoteStamp: number | null): boolean {
   if (localStamp == null) return true
   if (remoteStamp == null) return false
   return remoteStamp > localStamp
+}
+
+/** Un plan remoto inválido o ausente deja la materia fuera del plan, sin romper la descarga. */
+function remotePlan(raw: Json | null | undefined): { plan?: SubjectPlan } {
+  if (raw == null) return {}
+  const parsed = SubjectPlanSchema.safeParse(raw)
+  return parsed.success ? { plan: parsed.data } : {}
+}
+
+const FIT_SET = new Set<string>(DATASET_FITS)
+const datasetFit = (v: string): DatasetFit => (FIT_SET.has(v) ? (v as DatasetFit) : 'none')
+const datasetRows = (v: Json) => (Array.isArray(v) ? v.flatMap((r) => { const p = DatasetRowSchema.safeParse(r); return p.success ? [p.data] : [] }) : [])
+const datasetAxis = (v: Json): DatasetAxis => {
+  const p = DatasetAxisSchema.safeParse(v)
+  return p.success ? p.data : { label: '', unit: '', log: false }
 }
 
 export function mapRemoteToLocal(rows: {
@@ -266,11 +441,18 @@ export function mapRemoteToLocal(rows: {
   sketches: Row<'sketches'>[]
   tools: Row<'tools'>[]
   kv: Row<'kv'>[]
+  events: Row<'events'>[]
+  cards: Row<'cards'>[]
+  card_reviews: Row<'card_reviews'>[]
+  exercises: Row<'exercises'>[]
+  exam_runs: Row<'exam_runs'>[]
   dev_problems: Row<'dev_problems'>[]
+  datasets: Row<'datasets'>[]
 }): Backup['data'] {
   return {
     subjects: rows.subjects.map((s) => ({
       id: s.id, name: s.name, period: s.period, objectives: s.objectives, notes: s.notes, archived: s.archived, seed: s.seed, createdAt: ms(s.created_at), updatedAt: ms(s.updated_at),
+      ...remotePlan(s.plan),
     })),
     concepts: rows.concepts.map((c) => ({
       id: c.id, title: c.title, discipline: c.discipline, tags: strs(c.tags), summary: c.summary, explanation: c.explanation, formalism: c.formalism, examples: c.examples, observations: c.observations, relatedIds: strs(c.related_ids), favorite: c.favorite, seed: c.seed, createdAt: ms(c.created_at), updatedAt: ms(c.updated_at), lastViewedAt: c.last_viewed_at ? ms(c.last_viewed_at) : null,
@@ -294,8 +476,114 @@ export function mapRemoteToLocal(rows: {
     sketches: rows.sketches.map((s) => ({ id: s.id, title: s.title, strokes: strokes(s.strokes), background: s.background, createdAt: ms(s.created_at), updatedAt: ms(s.updated_at) })),
     tools: rows.tools.map((t) => ({ id: t.id, name: t.name, url: t.url, description: t.description, order: t.sort_order, seed: t.seed })),
     kv: rows.kv.filter((k) => k.key !== SYNC_USER_KEY).map((k) => ({ key: k.key, value: k.value })),
+    events: rows.events.flatMap((e) => {
+      const kind = eventKind(e.kind)
+      const repeat = eventRepeat(e.repeat)
+      const status = eventStatus(e.status)
+      if (!kind || !repeat || !status) return []
+      return [{
+        id: e.id,
+        title: e.title,
+        kind,
+        subjectId: e.subject_id,
+        startAt: ms(e.start_at),
+        endAt: ms(e.end_at),
+        allDay: e.all_day,
+        repeat,
+        repeatUntil: e.repeat_until ? ms(e.repeat_until) : null,
+        skipOn: strs(e.skip_on),
+        location: e.location,
+        notes: e.notes,
+        status,
+        doneOn: strs(e.done_on),
+        originId: e.origin_id,
+        seriesId: e.series_id,
+        createdAt: ms(e.created_at),
+        updatedAt: ms(e.updated_at),
+      }]
+    }),
+    cards: rows.cards.flatMap((c) => {
+      const originKind = cardOrigin(c.origin_kind)
+      if (!originKind) return []
+      return [{
+        id: c.id,
+        front: c.front,
+        back: c.back,
+        subjectId: c.subject_id,
+        tags: strs(c.tags),
+        originKind,
+        originId: c.origin_id,
+        originUpdatedAt: c.origin_updated_at ? ms(c.origin_updated_at) : null,
+        intervalDays: c.interval_days,
+        ease: c.ease,
+        reps: c.reps,
+        lapses: c.lapses,
+        dueAt: ms(c.due_at),
+        lastReviewedAt: c.last_reviewed_at ? ms(c.last_reviewed_at) : null,
+        createdAt: ms(c.created_at),
+        updatedAt: ms(c.updated_at),
+      }]
+    }),
+    reviews: rows.card_reviews.flatMap((r) => {
+      const rating = cardRating(r.rating)
+      if (!rating) return []
+      return [{
+        id: r.id,
+        cardId: r.card_id,
+        rating,
+        intervalDays: r.interval_days,
+        ease: r.ease,
+        at: ms(r.reviewed_at),
+      }]
+    }),
+    exercises: rows.exercises.flatMap((e) => {
+      const status = exerciseStatus(e.status)
+      if (!status) return []
+      return [{
+        id: e.id,
+        prompt: e.prompt,
+        subjectId: e.subject_id,
+        topic: e.topic,
+        difficulty: e.difficulty,
+        source: e.source,
+        solution: e.solution,
+        answer: e.answer,
+        status,
+        attempts: e.attempts,
+        lastAttemptMs: e.last_attempt_ms,
+        lastAttemptAt: e.last_attempt_at ? ms(e.last_attempt_at) : null,
+        tags: strs(e.tags),
+        conceptIds: strs(e.concept_ids),
+        createdAt: ms(e.created_at),
+        updatedAt: ms(e.updated_at),
+      }]
+    }),
+    examRuns: rows.exam_runs.map((r) => ({
+      id: r.id,
+      subjectId: r.subject_id,
+      topics: strs(r.topics),
+      count: r.count,
+      limitMs: r.limit_ms,
+      startedAt: ms(r.started_at),
+      endedAt: r.ended_at ? ms(r.ended_at) : null,
+      items: examItems(r.items),
+      createdAt: ms(r.created_at),
+    })),
     devProblems: rows.dev_problems.map((p) => ({
       id: p.id, title: p.title, text: p.text, kind: p.kind, strategy: p.strategy, lang: p.lang, mode: p.mode === 'consult' ? 'consult' as const : 'guided' as const, stage: p.stage, revealed: p.revealed, createdAt: ms(p.created_at), updatedAt: ms(p.updated_at),
+    })),
+    datasets: rows.datasets.map((d) => ({
+      id: d.id,
+      name: d.name,
+      subjectId: d.subject_id,
+      notes: d.notes,
+      rows: datasetRows(d.rows),
+      xAxis: datasetAxis(d.x_axis),
+      yAxis: datasetAxis(d.y_axis),
+      fit: datasetFit(d.fit),
+      degree: Math.min(5, Math.max(2, d.degree)),
+      createdAt: ms(d.created_at),
+      updatedAt: ms(d.updated_at),
     })),
   }
 }
@@ -312,7 +600,13 @@ const stampOf = {
   sketches: (r: Sketch) => r.updatedAt,
   tools: (_r: ToolLink) => 0,
   kv: (_r: KvEntry) => 0,
+  events: (r: CalendarEvent) => r.updatedAt,
+  cards: (r: Card) => r.updatedAt,
+  reviews: (r: CardReview) => r.at,
+  exercises: (r: Exercise) => r.updatedAt,
+  examRuns: (r: ExamRun) => r.startedAt,
   devProblems: (r: DevProblem) => r.updatedAt,
+  datasets: (r: Dataset) => r.updatedAt,
 } as const
 
 async function currentUserId(): Promise<string> {
@@ -324,20 +618,27 @@ async function currentUserId(): Promise<string> {
 
 async function fetchRemote(): Promise<Backup['data']> {
   if (!supabase) throw new StorageError('Supabase no está configurado. Reiniciá el servidor de desarrollo.')
+  skippedRelations = []
   const load = async <T extends (typeof ORDER)[number]>(table: T) => {
     const { data, error } = await supabase!.from(table).select('*')
-    if (error) throw new StorageError(`No se pudo leer ${table}: ${error.message}`, error)
+    if (error) {
+      if (isMissingRelation(error)) {
+        skippedRelations.push(table)
+        return []
+      }
+      throw new StorageError(`No se pudo leer ${table}: ${error.message}`, error)
+    }
     return data ?? []
   }
-  const [subjects, concepts, formulas, notes, questions, calculations, tasks, sessions, sketches, tools, kv, dev_problems] = await Promise.all([
-    load('subjects'), load('concepts'), load('formulas'), load('notes'), load('questions'), load('calculations'), load('tasks'), load('sessions'), load('sketches'), load('tools'), load('kv'), load('dev_problems'),
+  const [subjects, concepts, formulas, notes, questions, calculations, tasks, sessions, sketches, tools, kv, events, cards, card_reviews, exercises, exam_runs, dev_problems, datasets] = await Promise.all([
+    load('subjects'), load('concepts'), load('formulas'), load('notes'), load('questions'), load('calculations'), load('tasks'), load('sessions'), load('sketches'), load('tools'), load('kv'), load('events'), load('cards'), load('card_reviews'), load('exercises'), load('exam_runs'), load('dev_problems'), load('datasets'),
   ])
-  return mapRemoteToLocal({ subjects, concepts, formulas, notes, questions, calculations, tasks, sessions, sketches, tools, kv, dev_problems })
+  return mapRemoteToLocal({ subjects, concepts, formulas, notes, questions, calculations, tasks, sessions, sketches, tools, kv, events, cards, card_reviews, exercises, exam_runs, dev_problems, datasets })
 }
 
 async function hasPersonalData(): Promise<boolean> {
   const counts = await Promise.all([
-    db.notes.count(), db.questions.count(), db.calculations.count(), db.tasks.count(), db.sessions.count(), db.sketches.count(), db.devProblems.count(),
+    db.notes.count(), db.questions.count(), db.calculations.count(), db.tasks.count(), db.sessions.count(), db.sketches.count(), db.devProblems.count(), db.events.count(), db.cards.count(), db.exercises.count(), db.examRuns.count(), db.datasets.count(),
   ])
   if (counts.some((n) => n > 0)) return true
   const [concepts, formulas, subjects, tools, kv] = await Promise.all([
@@ -392,7 +693,13 @@ export async function pullRemoteToLocal(mode: PullMode = 'merge'): Promise<numbe
       sketches: mergeRows(local.sketches, remote.sketches, stampOf.sketches, mode),
       tools: mergeRows(local.tools, remote.tools, stampOf.tools, mode),
       kv: mergeRows(local.kv, remote.kv, stampOf.kv, mode).filter((k) => k.key !== SYNC_USER_KEY).concat([{ key: SYNC_USER_KEY, value: uid }]),
+      events: mergeRows(local.events, remote.events, stampOf.events, mode),
+      cards: mergeRows(local.cards, remote.cards, stampOf.cards, mode),
+      reviews: mergeRows(local.reviews, remote.reviews, stampOf.reviews, mode),
+      exercises: mergeRows(local.exercises, remote.exercises, stampOf.exercises, mode),
+      examRuns: mergeRows(local.examRuns, remote.examRuns, stampOf.examRuns, mode),
       devProblems: mergeRows(local.devProblems, remote.devProblems, stampOf.devProblems, mode),
+      datasets: mergeRows(local.datasets, remote.datasets, stampOf.datasets, mode),
     }
     await importData({ app: 'exodia', schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), data: next }, 'replace')
     setConflict(false)

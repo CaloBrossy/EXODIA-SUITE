@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { CloudDownload, CloudUpload, Download, LogOut, Upload } from 'lucide-react'
 import { db, SCHEMA_VERSION, TABLE_NAMES, type TableName } from '@/db/db'
 import { downloadJson, exportData, importData, parseBackup, type Backup, type ImportMode } from '@/services/backup'
-import { pullRemoteToLocal, pushLocalToSupabase, replaceLocalWithRemote } from '@/services/sync'
+import { pullRemoteToLocal, pushLocalToSupabase, readSkippedRelations, replaceLocalWithRemote } from '@/services/sync'
 import { useAuth } from '@/hooks/useAuth'
 import { useSyncConflict } from '@/hooks/useSyncConflict'
 import { useFx, useTheme } from '@/hooks/misc'
@@ -24,6 +24,12 @@ const TABLE_LABEL: Record<TableName, string> = {
   tools: 'Herramientas',
   kv: 'Configuración',
   devProblems: 'Problemas de programación',
+  events: 'Eventos',
+  cards: 'Tarjetas',
+  reviews: 'Repasos',
+  exercises: 'Ejercicios',
+  datasets: 'Series de datos',
+  examRuns: 'Simulados',
 }
 
 function CloudSync() {
@@ -31,6 +37,7 @@ function CloudSync() {
   const { configured, session, signOut } = useAuth()
   const conflict = useSyncConflict()
   const [busy, setBusy] = useState(false)
+  const [skipped, setSkipped] = useState<string[]>([])
 
   const run = async (op: () => Promise<number | Record<string, number>>, ok: string) => {
     setBusy(true)
@@ -38,6 +45,11 @@ function CloudSync() {
       const result = await op()
       const n = typeof result === 'number' ? result : Object.values(result).reduce((a, b) => a + b, 0)
       notify(`${ok} (${n} filas).`, 'ok')
+      const missed = readSkippedRelations()
+      setSkipped(missed)
+      if (missed.includes('events')) notify('Los eventos no se sincronizaron: falta la tabla remota.', 'info')
+      if (missed.includes('cards')) notify('Las tarjetas no se sincronizaron: falta la tabla remota.', 'info')
+      if (missed.includes('card_reviews')) notify('Los repasos no se sincronizaron: falta la tabla remota.', 'info')
     } catch (e) {
       fail(e)
     } finally {
@@ -75,6 +87,12 @@ function CloudSync() {
       <p className="text-muted">Sesión: <span className="text-fg">{session.user.email ?? session.user.id}</span></p>
       {conflict && (
         <p className="text-muted">Este dispositivo tiene datos de otra cuenta. No se subieron solos. Elegí si copiás la nube hacia acá o subís este dispositivo a la cuenta actual.</p>
+      )}
+      {skipped.includes('events') && (
+        <ErrorText>La tabla remota de eventos no existe. Quedan solo en este dispositivo hasta que apliques la migración calendar_events.</ErrorText>
+      )}
+      {skipped.includes('cards') && (
+        <ErrorText>La tabla remota de tarjetas no existe. Quedan solo en este dispositivo hasta que apliques la migración review_cards.</ErrorText>
       )}
       <div className="flex flex-wrap gap-2">
         <Button variant="primary" disabled={busy} onClick={() => void run(pushLocalToSupabase, 'Subida lista')}><CloudUpload size={15} /> Subir este dispositivo</Button>
@@ -225,7 +243,7 @@ export default function SettingsPage() {
         <ul className="grid gap-1.5 text-sm sm:grid-cols-2">
           <li><Kbd>Ctrl K</Kbd> Buscar en todo EXODIA</li>
           <li><Kbd>Alt N</Kbd> Nueva nota</li>
-          <li><Kbd>Alt 1…8</Kbd> Ir a cada módulo</li>
+          <li><Kbd>Alt 1…9</Kbd> Ir a cada módulo</li>
           <li><Kbd>Ctrl B</Kbd> / <Kbd>Ctrl I</Kbd> Negrita / cursiva en notas</li>
           <li><Kbd>Ctrl S</Kbd> Guardar nota inmediatamente</li>
           <li><Kbd>Enter</Kbd> / <Kbd>↑</Kbd> Calcular / historial (calculadora)</li>

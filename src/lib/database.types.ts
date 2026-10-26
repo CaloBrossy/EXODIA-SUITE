@@ -98,6 +98,306 @@ export type Database = {
         }
         Relationships: []
       }
+      events: {
+        Row: {
+          all_day: boolean
+          created_at: string
+          done_on: string[]
+          end_at: string
+          id: string
+          kind: Database["public"]["Enums"]["event_kind"]
+          location: string
+          notes: string
+          origin_id: string | null
+          repeat: Database["public"]["Enums"]["event_repeat"]
+          repeat_until: string | null
+          series_id: string | null
+          skip_on: string[]
+          start_at: string
+          status: Database["public"]["Enums"]["event_status"]
+          subject_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          all_day?: boolean
+          created_at?: string
+          done_on?: string[]
+          end_at: string
+          id: string
+          kind: Database["public"]["Enums"]["event_kind"]
+          location?: string
+          notes?: string
+          origin_id?: string | null
+          repeat?: Database["public"]["Enums"]["event_repeat"]
+          repeat_until?: string | null
+          series_id?: string | null
+          skip_on?: string[]
+          start_at: string
+          status?: Database["public"]["Enums"]["event_status"]
+          subject_id?: string | null
+          title: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          all_day?: boolean
+          created_at?: string
+          done_on?: string[]
+          end_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["event_kind"]
+          location?: string
+          notes?: string
+          origin_id?: string | null
+          repeat?: Database["public"]["Enums"]["event_repeat"]
+          repeat_until?: string | null
+          series_id?: string | null
+          skip_on?: string[]
+          start_at?: string
+          status?: Database["public"]["Enums"]["event_status"]
+          subject_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      cards: {
+        Row: {
+          back: string
+          created_at: string
+          due_at: string
+          ease: number
+          front: string
+          id: string
+          interval_days: number
+          last_reviewed_at: string | null
+          lapses: number
+          origin_id: string | null
+          origin_kind: Database["public"]["Enums"]["card_origin"]
+          origin_updated_at: string | null
+          reps: number
+          subject_id: string | null
+          tags: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          back: string
+          created_at?: string
+          due_at: string
+          ease?: number
+          front: string
+          id: string
+          interval_days?: number
+          last_reviewed_at?: string | null
+          lapses?: number
+          origin_id?: string | null
+          origin_kind?: Database["public"]["Enums"]["card_origin"]
+          origin_updated_at?: string | null
+          reps?: number
+          subject_id?: string | null
+          tags?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          back?: string
+          created_at?: string
+          due_at?: string
+          ease?: number
+          front?: string
+          id?: string
+          interval_days?: number
+          last_reviewed_at?: string | null
+          lapses?: number
+          origin_id?: string | null
+          origin_kind?: Database["public"]["Enums"]["card_origin"]
+          origin_updated_at?: string | null
+          reps?: number
+          subject_id?: string | null
+          tags?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      card_reviews: {
+        Row: {
+          card_id: string
+          ease: number
+          id: string
+          interval_days: number
+          rating: Database["public"]["Enums"]["card_rating"]
+          reviewed_at: string
+          user_id: string
+        }
+        Insert: {
+          card_id: string
+          ease: number
+          id: string
+          interval_days: number
+          rating: Database["public"]["Enums"]["card_rating"]
+          reviewed_at: string
+          user_id?: string
+        }
+        Update: {
+          card_id?: string
+          ease?: number
+          id?: string
+          interval_days?: number
+          rating?: Database["public"]["Enums"]["card_rating"]
+          reviewed_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      exercises: {
+        Row: {
+          answer: string
+          attempts: number
+          concept_ids: string[]
+          created_at: string
+          difficulty: number
+          id: string
+          last_attempt_at: string | null
+          last_attempt_ms: number
+          prompt: string
+          solution: string
+          source: string
+          status: Database["public"]["Enums"]["exercise_status"]
+          subject_id: string | null
+          tags: string[]
+          topic: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          answer?: string
+          attempts?: number
+          concept_ids?: string[]
+          created_at?: string
+          difficulty?: number
+          id: string
+          last_attempt_at?: string | null
+          last_attempt_ms?: number
+          prompt: string
+          solution?: string
+          source?: string
+          status?: Database["public"]["Enums"]["exercise_status"]
+          subject_id?: string | null
+          tags?: string[]
+          topic?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          answer?: string
+          attempts?: number
+          concept_ids?: string[]
+          created_at?: string
+          difficulty?: number
+          id?: string
+          last_attempt_at?: string | null
+          last_attempt_ms?: number
+          prompt?: string
+          solution?: string
+          source?: string
+          status?: Database["public"]["Enums"]["exercise_status"]
+          subject_id?: string | null
+          tags?: string[]
+          topic?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      datasets: {
+        Row: {
+          created_at: string
+          degree: number
+          fit: string
+          id: string
+          name: string
+          notes: string
+          rows: Json
+          subject_id: string | null
+          updated_at: string
+          user_id: string
+          x_axis: Json
+          y_axis: Json
+        }
+        Insert: {
+          created_at?: string
+          degree?: number
+          fit?: string
+          id: string
+          name: string
+          notes?: string
+          rows?: Json
+          subject_id?: string | null
+          updated_at?: string
+          user_id?: string
+          x_axis?: Json
+          y_axis?: Json
+        }
+        Update: {
+          created_at?: string
+          degree?: number
+          fit?: string
+          id?: string
+          name?: string
+          notes?: string
+          rows?: Json
+          subject_id?: string | null
+          updated_at?: string
+          user_id?: string
+          x_axis?: Json
+          y_axis?: Json
+        }
+        Relationships: []
+      }
+      exam_runs: {
+        Row: {
+          count: number
+          created_at: string
+          ended_at: string | null
+          id: string
+          items: Json
+          limit_ms: number
+          started_at: string
+          subject_id: string | null
+          topics: string[]
+          user_id: string
+        }
+        Insert: {
+          count: number
+          created_at?: string
+          ended_at?: string | null
+          id: string
+          items?: Json
+          limit_ms: number
+          started_at: string
+          subject_id?: string | null
+          topics?: string[]
+          user_id?: string
+        }
+        Update: {
+          count?: number
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          items?: Json
+          limit_ms?: number
+          started_at?: string
+          subject_id?: string | null
+          topics?: string[]
+          user_id?: string
+        }
+        Relationships: []
+      }
       dev_problems: {
         Row: {
           created_at: string
@@ -412,6 +712,7 @@ export type Database = {
           notes: string
           objectives: string
           period: string
+          plan: Json | null
           seed: boolean
           updated_at: string
           user_id: string
@@ -424,6 +725,7 @@ export type Database = {
           notes?: string
           objectives?: string
           period?: string
+          plan?: Json | null
           seed?: boolean
           updated_at?: string
           user_id?: string
@@ -436,6 +738,7 @@ export type Database = {
           notes?: string
           objectives?: string
           period?: string
+          plan?: Json | null
           seed?: boolean
           updated_at?: string
           user_id?: string
@@ -530,7 +833,14 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      card_origin: "manual" | "concept" | "formula" | "question"
+      card_rating: "again" | "hard" | "good" | "easy"
+      exercise_status: "sin_intentar" | "resuelto" | "fallo" | "repasar"
+      practice_result: "bien" | "mal" | "ayuda"
       devlab_mode: "guided" | "consult"
+      event_kind: "clase" | "parcial" | "entrega" | "final" | "laboratorio" | "estudio" | "otro"
+      event_repeat: "none" | "weekly"
+      event_status: "pendiente" | "hecho"
       priority: "low" | "medium" | "high"
       session_phase: "work" | "short" | "long"
     }
@@ -660,7 +970,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      card_origin: ["manual", "concept", "formula", "question"],
+      card_rating: ["again", "hard", "good", "easy"],
+      exercise_status: ["sin_intentar", "resuelto", "fallo", "repasar"],
+      practice_result: ["bien", "mal", "ayuda"],
       devlab_mode: ["guided", "consult"],
+      event_kind: ["clase", "parcial", "entrega", "final", "laboratorio", "estudio", "otro"],
+      event_repeat: ["none", "weekly"],
+      event_status: ["pendiente", "hecho"],
       priority: ["low", "medium", "high"],
       session_phase: ["work", "short", "long"],
     },

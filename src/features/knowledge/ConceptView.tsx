@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, NotebookPen, Pencil, Star, Trash2 } from 'lucide-react'
@@ -10,6 +10,9 @@ import { Markdown, Tex } from '@/components/Markdown'
 import { Button, ButtonLink, Loading, Panel, Tag } from '@/components/ui'
 import { formatDateTime } from '@/lib/text'
 import { QuestionsPanel } from './QuestionsPanel'
+import { ProposeCards } from '@/features/review/ProposeCards'
+import { proposeFromConcept, skipExisting } from '@/lib/flashcards'
+import { listCards } from '@/services/cards'
 
 function Section({ title, source }: { title: string; source: string }) {
   if (!source.trim()) return null
@@ -25,15 +28,17 @@ export default function ConceptView() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const { fail, confirm } = useFeedback()
+  const [drafts, setDrafts] = useState<ReturnType<typeof proposeFromConcept> | null>(null)
   const data = useLiveQuery(async () => {
     const c = await db.concepts.get(id)
     if (!c) return { c: null }
-    const [related, notes, formulas] = await Promise.all([
+    const [related, notes, formulas, exercises] = await Promise.all([
       db.concepts.bulkGet(c.relatedIds),
       db.notes.filter((n) => n.conceptIds.includes(id)).toArray(),
       db.formulas.filter((f) => f.conceptIds.includes(id)).toArray(),
+      db.exercises.filter((e) => e.conceptIds.includes(id)).toArray(),
     ])
-    return { c, related: related.filter((x) => !!x), notes, formulas }
+    return { c, related: related.filter((x) => !!x), notes, formulas, exercises }
   }, [id])
 
   useEffect(() => {
@@ -92,12 +97,20 @@ export default function ConceptView() {
                   <Star size={16} className={c.favorite ? 'fill-accent text-accent' : ''} />
                 </Button>
                 <Button size="sm" onClick={noteFromConcept}><NotebookPen size={14} /> Tomar nota</Button>
+                <Button size="sm" onClick={() => {
+                  void listCards().then((cards) => setDrafts(skipExisting(proposeFromConcept(c), cards))).catch(fail)
+                }}>Crear tarjetas</Button>
                 <ButtonLink size="sm" to={`/knowledge/${c.id}/edit`}><Pencil size={14} /> Editar</ButtonLink>
                 <Button size="icon" variant="ghost" aria-label="Eliminar" title="Eliminar" onClick={remove}><Trash2 size={15} /></Button>
               </div>
             </div>
             {c.summary && <p className="text-[15px] leading-relaxed">{c.summary}</p>}
             {c.tags.length > 0 && <div className="flex flex-wrap gap-1">{c.tags.map((t) => <Tag key={t}>{t}</Tag>)}</div>}
+            {drafts && (
+              <div className="mt-3 rounded-xl border border-line p-3">
+                <ProposeCards drafts={drafts} onClose={() => setDrafts(null)} />
+              </div>
+            )}
           </header>
           <Section title="Explicación" source={c.explanation} />
           <Section title="Formalización matemática" source={c.formalism} />
@@ -133,6 +146,17 @@ export default function ConceptView() {
                       <Tex expr={f.latex} />
                     </Link>
                   </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+          <Panel title="Ejercicios" bodyClass="p-3">
+            {data.exercises.length === 0 ? (
+              <p className="text-xs text-muted">Ningún ejercicio vinculado. <Link className="text-accent" to="/exercises">Banco</Link></p>
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {data.exercises.map((e) => (
+                  <li key={e.id}><Link to="/exercises" className="text-sm text-accent hover:underline">{e.prompt.slice(0, 80)}</Link></li>
                 ))}
               </ul>
             )}

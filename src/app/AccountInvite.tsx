@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { dismissInvite, inviteDismissed, VISITED_MODULES_KEY } from './gate'
 import { useAuth } from '@/hooks/useAuth'
 
-const TRACK = new Set(['notes', 'knowledge', 'workbench', 'focus', 'sketch', 'tools'])
+const TRACK = new Set(['notes', 'knowledge', 'workbench', 'focus', 'sketch', 'tools', 'calendar', 'review', 'exercises'])
 
 export function AccountInvite() {
   const { session, configured } = useAuth()

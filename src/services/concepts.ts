@@ -60,7 +60,7 @@ export function saveConcept(input: ConceptInput, id?: string): Promise<string> {
 
 export function deleteConcept(id: string): Promise<void> {
   return guard('No se pudo eliminar el concepto', () =>
-    db.transaction('rw', [db.concepts, db.notes, db.formulas, db.questions], async () => {
+    db.transaction('rw', [db.concepts, db.notes, db.formulas, db.questions, db.exercises], async () => {
       const c = await db.concepts.get(id)
       if (!c) return
       await syncRelations(id, c.relatedIds, [])
@@ -71,6 +71,9 @@ export function deleteConcept(id: string): Promise<void> {
         f.conceptIds = f.conceptIds.filter((x) => x !== id)
       })
       await db.questions.where('conceptId').equals(id).modify({ conceptId: null })
+      await db.exercises.toCollection().modify((e) => {
+        e.conceptIds = e.conceptIds.filter((x) => x !== id)
+      })
       await db.concepts.delete(id)
     }),
   )
