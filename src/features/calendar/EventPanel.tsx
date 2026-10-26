@@ -6,6 +6,7 @@ import { deleteEvent, EXAM_KINDS, listStudyBlocks, replaceStudyPlan, saveEvent, 
 import { usePomodoro } from '@/hooks/usePomodoro'
 import { useFeedback } from '@/components/feedback'
 import { Button, ErrorText, Field, Input, Select, Textarea } from '@/components/ui'
+import { ExamPlanner } from './ExamPlanner'
 
 const COLORS = ['#5ee7f7', '#8b7cf6', '#e879c6', '#4ade9b', '#fb7185', '#8d98b8']
 
@@ -153,7 +154,12 @@ export function EventPanel({
         }
         await saveEvent({ ...input, skipOn: editing.skipOn, doneOn: editing.doneOn, originId: editing.originId, seriesId: editing.seriesId }, editing.id)
       } else {
-        await saveEvent(input)
+        const created = await saveEvent(input)
+        if (created.kind === 'parcial' || created.kind === 'final') {
+          notify('Evento creado.', 'ok')
+          onBecameSaved(created)
+          return
+        }
       }
       notify(editing ? 'Evento guardado.' : 'Evento creado.', 'ok')
       onClose()
@@ -409,6 +415,9 @@ export function EventPanel({
             <Button onClick={() => void skipDay()}>Omitir este día</Button>
           )}
         </div>
+        {editing && (editing.kind === 'parcial' || editing.kind === 'final') && (
+          <ExamPlanner exam={editing} events={events} threshold={threshold} />
+        )}
       </form>
     </aside>
   )

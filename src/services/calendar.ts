@@ -125,6 +125,33 @@ export function replaceStudyPlan(
   )
 }
 
+export function saveNamedStudyPlan(
+  originId: string,
+  slots: { startAt: number; endAt: number; title: string; notes: string; status?: 'pendiente' | 'hecho' }[],
+  subjectId: string | null,
+): Promise<void> {
+  return guard('No se pudo guardar el plan de estudio', () =>
+    db.transaction('rw', db.events, async () => {
+      await db.events.where('originId').equals(originId).delete()
+      const now = Date.now()
+      for (const slot of slots) {
+        await db.events.add(normalize({
+          title: slot.title.slice(0, 500),
+          kind: 'estudio',
+          subjectId,
+          startAt: slot.startAt,
+          endAt: slot.endAt,
+          allDay: false,
+          repeat: 'none',
+          originId,
+          notes: slot.notes,
+          status: slot.status ?? 'pendiente',
+        }, uid(), now, now))
+      }
+    }),
+  )
+}
+
 export async function readLoadHours(): Promise<number> {
   const row = await db.kv.get(LOAD_HOURS_KEY)
   const n = typeof row?.value === 'number' ? row.value : DEFAULT_LOAD_HOURS

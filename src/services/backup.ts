@@ -7,6 +7,8 @@ import {
   CardSchema,
   ConceptSchema,
   DatasetSchema,
+  ReportSchema,
+  ExamPlanSchema,
   ExamRunSchema,
   ExerciseSchema,
   DevProblemSchema,
@@ -44,6 +46,8 @@ const DataSchema = z.object({
   exercises: z.array(ExerciseSchema).default([]),
   examRuns: z.array(ExamRunSchema).default([]),
   datasets: z.array(DatasetSchema).default([]),
+  reports: z.array(ReportSchema).default([]),
+  examPlans: z.array(ExamPlanSchema).default([]),
 })
 
 export const BackupSchema = z.object({
@@ -92,6 +96,9 @@ function migrateBackup(raw: unknown): unknown {
   if (b.schemaVersion < 7) b.schemaVersion = 7
   // v8 agrega datasets; el esquema completa con [] si falta.
   if (b.schemaVersion < 8) b.schemaVersion = 8
+  // v9 agrega reports; el esquema completa con [] si falta.
+  if (b.schemaVersion < 9) b.schemaVersion = 9
+  if (b.schemaVersion < 10) b.schemaVersion = 10
   return b
 }
 

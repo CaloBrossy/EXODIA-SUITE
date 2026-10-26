@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/db/db'
+import { searchRefs } from '@/lib/refs/catalog'
 import { formatDateTime, matchesQuery } from '@/lib/text'
 import { nextOccurrence } from '@/lib/calendar'
 import { EventKindLabel } from '@/db/models'
@@ -40,6 +41,10 @@ const TOOLS: [string, string, string][] = [
   ['Gráficas y ajuste de datos', '/workbench/data', 'regresión lineal mínimos cuadrados dispersión errores'],
   ['Solver simbólico', '/workbench/symbolic', 'derivar integrar límites ecuaciones taylor'],
   ['Análisis de circuitos', '/workbench/circuits', 'mallas thévenin transitorios rlc divisor'],
+  ['Matrices y álgebra lineal', '/workbench/algebra', 'determinante inversa autovalores gauss'],
+  ['Informes de laboratorio', '/workbench/reports', 'propagación de errores incertidumbre'],
+  ['Referencias técnicas', '/workbench/refs', 'tabla periódica resistencias derivadas griego'],
+  ['Planificador de examen', '/calendar', 'temas dominio repaso simulacro'],
   ['Plan de estudios', '/focus/plan', 'carrera correlativas materias aprobadas promedio'],
 ]
 
@@ -55,7 +60,7 @@ export function CommandPalette({ open, initialQuery = '', onClose }: { open: boo
   const navigate = useNavigate()
 
   const data = useLiveQuery(
-    async () => (open ? { notes: await db.notes.toArray(), concepts: await db.concepts.toArray(), formulas: await db.formulas.toArray(), tools: await db.tools.toArray(), events: await db.events.toArray(), cards: await db.cards.toArray(), exercises: await db.exercises.toArray(), datasets: await db.datasets.toArray() } : null),
+    async () => (open ? { notes: await db.notes.toArray(), concepts: await db.concepts.toArray(), formulas: await db.formulas.toArray(), tools: await db.tools.toArray(), events: await db.events.toArray(), cards: await db.cards.toArray(), exercises: await db.exercises.toArray(), datasets: await db.datasets.toArray(), reports: await db.reports.toArray() } : null),
     [open],
   )
 
@@ -103,6 +108,8 @@ export function CommandPalette({ open, initialQuery = '', onClose }: { open: boo
         out.push({ id: x.id, label: x.prompt.slice(0, 80), kind: 'Ejercicio', to: '/exercises' })
       }
       for (const d of data.datasets) if (matchesQuery(q, d.name, d.notes)) out.push({ id: d.id, label: d.name, kind: 'Serie de datos', to: `/workbench/data/${d.id}` })
+      for (const r of searchRefs(q)) out.push({ id: r.id, label: r.title, kind: r.section, to: `/workbench/refs?q=${encodeURIComponent(r.title)}` })
+      for (const r of data.reports) if (matchesQuery(q, r.title)) out.push({ id: r.id, label: r.title, kind: 'Informe', to: `/workbench/reports/${r.id}` })
     }
     return out.slice(0, 40)
   }, [q, data])

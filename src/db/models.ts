@@ -383,3 +383,79 @@ export const DatasetSchema = z.object({
 })
 export type Dataset = z.infer<typeof DatasetSchema>
 export type DatasetFit = (typeof DATASET_FITS)[number]
+
+export const REPORT_SECTIONS = ['objetivo', 'marco', 'materiales', 'procedimiento', 'datos', 'calculos', 'resultados', 'analisis', 'bibliografia'] as const
+export const ReportSectionLabel: Record<(typeof REPORT_SECTIONS)[number], string> = {
+  objetivo: 'Objetivo',
+  marco: 'Marco teórico',
+  materiales: 'Materiales',
+  procedimiento: 'Procedimiento',
+  datos: 'Datos',
+  calculos: 'Cálculos',
+  resultados: 'Resultados',
+  analisis: 'Análisis y conclusiones',
+  bibliografia: 'Bibliografía',
+}
+export const ReportSectionSchema = z.object({ key: z.enum(REPORT_SECTIONS), markdown: z.string().max(50_000) })
+export const MeasurementSchema = z.object({
+  name: z.string().max(80),
+  value: z.number().finite(),
+  uncertainty: z.number().finite().nonnegative(),
+  unit: z.string().max(40),
+})
+export const PropagationVarSchema = z.object({
+  symbol: z.string().max(40),
+  value: z.number().finite(),
+  uncertainty: z.number().finite().nonnegative(),
+})
+export const PropagationInputSchema = z.object({
+  formula: z.string().max(500),
+  unit: z.string().max(40),
+  variables: z.array(PropagationVarSchema).max(12),
+})
+export const ReportSchema = z.object({
+  id,
+  title: z.string().min(1).max(200),
+  subjectId: optionalId,
+  noteId: optionalId,
+  datasetId: optionalId,
+  conceptIds: z.array(id).max(50),
+  sections: z.array(ReportSectionSchema).max(9),
+  measurements: z.array(MeasurementSchema).max(200),
+  propagation: PropagationInputSchema.nullable(),
+  createdAt: ts,
+  updatedAt: ts,
+})
+export const ExamTopicSchema = z.object({
+  id,
+  title: z.string().min(1).max(200),
+  conceptId: optionalId,
+  mastery: z.number().int().min(1).max(5),
+})
+export const ExamSessionSchema = z.object({
+  id,
+  startAt: ts,
+  endAt: ts,
+  topicId: optionalId,
+  kind: z.enum(['tema', 'repaso', 'simulacro']),
+  done: z.boolean(),
+  reason: z.string().max(300),
+})
+export const ExamPlanSchema = z.object({
+  id,
+  eventId: id,
+  subjectId: optionalId,
+  hoursPerDay: z.number().min(1).max(8),
+  topics: z.array(ExamTopicSchema).max(30),
+  sessions: z.array(ExamSessionSchema).max(80),
+  createdAt: ts,
+  updatedAt: ts,
+})
+export type ExamTopic = z.infer<typeof ExamTopicSchema>
+export type ExamSession = z.infer<typeof ExamSessionSchema>
+export type ExamPlan = z.infer<typeof ExamPlanSchema>
+
+export type ReportSection = z.infer<typeof ReportSectionSchema>
+export type Measurement = z.infer<typeof MeasurementSchema>
+export type PropagationInput = z.infer<typeof PropagationInputSchema>
+export type Report = z.infer<typeof ReportSchema>

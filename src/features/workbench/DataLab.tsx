@@ -278,6 +278,7 @@ export default function DataLab() {
               <Button size="sm" variant="primary" onClick={save}><Save size={13} /> {id ? 'Guardar' : 'Guardar serie'}</Button>
               <Button size="sm" onClick={reset}><FilePlus2 size={13} /> Nueva</Button>
               {id && <Button size="sm" variant="danger" onClick={remove}><Trash2 size={13} /> Eliminar</Button>}
+              {id && <Button size="sm" onClick={() => navigate(`/workbench/reports/new?dataset=${id}`)}><NotebookPen size={13} /> Informe</Button>}
             </div>
           </div>
         </Panel>

@@ -194,6 +194,8 @@ export type StudyPlanInput = {
   now: number
   loadThreshold: number
   ignoreOriginId?: string | null
+  /** Tope de horas de estudio ese día. 2 deja una sesión de 90 min. */
+  targetDayHours?: number
 }
 
 function atHour(day: number, h: number, min = 0): number {
@@ -259,8 +261,10 @@ export function proposeStudyPlan(input: StudyPlanInput): StudySlot[] {
     const winStart = Math.max(atHour(day, WIN_START_H), input.now)
     if (winEnd - winStart < STUDY_SLOT_MS) continue
 
+    const target = input.targetDayHours ?? TARGET_DAY_H
+    const maxDay = Math.max(MAX_DAY_H, target)
     const existingStudy = studyHoursOnDay(events, day)
-    if (existingStudy + slotH > MAX_DAY_H) continue
+    if (existingStudy + slotH > maxDay) continue
 
     const occ = expandEvents(events, day, addDays(day, 1))
     const busy = occ
@@ -273,8 +277,8 @@ export function proposeStudyPlan(input: StudyPlanInput): StudySlot[] {
     const candidates = freeGaps(busy, winStart, winEnd).reverse().flatMap(latestSlotsInGap)
     let dayAdded = 0
     for (const slot of candidates) {
-      if (dayAdded > 0 && dayAdded + slotH > TARGET_DAY_H) break
-      if (existingStudy + dayAdded + slotH > MAX_DAY_H) break
+      if (dayAdded > 0 && dayAdded + slotH > target) break
+      if (existingStudy + dayAdded + slotH > maxDay) break
       const weekH = weekLoadHours(events, slot.startAt) + proposedHoursInWeek(placed, slot.startAt) + slotH
       if (weekH > input.loadThreshold) continue
       placed.push(slot)

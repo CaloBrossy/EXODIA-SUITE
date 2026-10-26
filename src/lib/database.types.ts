@@ -359,6 +359,87 @@ export type Database = {
         }
         Relationships: []
       }
+      reports: {
+        Row: {
+          concept_ids: string[]
+          created_at: string
+          dataset_id: string | null
+          id: string
+          measurements: Json
+          note_id: string | null
+          propagation: Json | null
+          sections: Json
+          subject_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          concept_ids?: string[]
+          created_at?: string
+          dataset_id?: string | null
+          id: string
+          measurements?: Json
+          note_id?: string | null
+          propagation?: Json | null
+          sections?: Json
+          subject_id?: string | null
+          title: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          concept_ids?: string[]
+          created_at?: string
+          dataset_id?: string | null
+          id?: string
+          measurements?: Json
+          note_id?: string | null
+          propagation?: Json | null
+          sections?: Json
+          subject_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      exam_plans: {
+        Row: {
+          created_at: string
+          event_id: string
+          hours_per_day: number
+          id: string
+          sessions: Json
+          subject_id: string | null
+          topics: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          hours_per_day?: number
+          id: string
+          sessions?: Json
+          subject_id?: string | null
+          topics?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          hours_per_day?: number
+          id?: string
+          sessions?: Json
+          subject_id?: string | null
+          topics?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       exam_runs: {
         Row: {
           count: number

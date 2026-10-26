@@ -72,8 +72,10 @@ export function saveSubject(input: SubjectInput, id?: string): Promise<string> {
 
 export function deleteSubject(id: string): Promise<void> {
   return guard('No se pudo eliminar la materia', () =>
-    db.transaction('rw', [db.subjects, db.tasks, db.notes, db.sessions, db.events, db.cards, db.exercises, db.datasets], async () => {
+    db.transaction('rw', [db.subjects, db.tasks, db.notes, db.sessions, db.events, db.cards, db.exercises, db.datasets, db.reports, db.examPlans], async () => {
       await db.datasets.where('subjectId').equals(id).modify({ subjectId: null })
+      await db.reports.where('subjectId').equals(id).modify({ subjectId: null })
+      await db.examPlans.where('subjectId').equals(id).modify({ subjectId: null })
       await db.tasks.where('subjectId').equals(id).modify({ subjectId: null })
       await db.notes.where('subjectId').equals(id).modify({ subjectId: null })
       await db.sessions.where('subjectId').equals(id).modify({ subjectId: null })

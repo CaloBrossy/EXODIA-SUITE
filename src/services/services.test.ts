@@ -16,6 +16,7 @@ import { addQuestion } from './knowledge'
 import { start } from '@/lib/pomodoro'
 import { saveTool } from './tools'
 import { emptyDataset, saveDataset } from './datasets'
+import { emptyReport, saveReport } from './reports'
 
 describe('series de datos', () => {
   it('guarda, exporta, sincroniza y sobrevive al borrado de la materia', async () => {
@@ -31,12 +32,32 @@ describe('series de datos', () => {
     expect(remote.datasets[0]).toMatchObject({ name: 'Péndulo', subject_id: 's-1', fit: 'poly', degree: 3 })
     const [row] = remote.datasets
     const back = mapRemoteToLocal({
-      subjects: [], concepts: [], formulas: [], notes: [], questions: [], calculations: [], tasks: [], sessions: [], sketches: [], tools: [], kv: [], events: [], cards: [], card_reviews: [], exercises: [], exam_runs: [], dev_problems: [],
+      subjects: [], concepts: [], formulas: [], notes: [], questions: [], calculations: [], tasks: [], sessions: [], sketches: [], tools: [], kv: [], events: [], cards: [], card_reviews: [], exercises: [], exam_runs: [], dev_problems: [], reports: [], exam_plans: [],
       datasets: [{ ...row!, created_at: row!.created_at!, updated_at: row!.updated_at!, user_id: 'u', subject_id: row!.subject_id ?? null, notes: row!.notes!, rows: [...(row!.rows as unknown[]), { x: 'mal' }] as never, x_axis: null as never, fit: 'raro', degree: row!.degree! }],
     })
     expect(back.datasets[0]).toMatchObject({ rows: [{ x: 1, y: 2, ex: null, ey: 0.1 }], xAxis: { label: '', unit: '', log: false }, fit: 'none', notes: 'medido' })
     await deleteSubject('s-1')
     expect((await db.datasets.get(d.id))?.subjectId).toBeNull()
+  })
+})
+
+describe('informes', () => {
+  it('guarda, exporta y descarta una medición remota inválida', async () => {
+    await expect(saveReport(emptyReport())).rejects.toThrow(/título/)
+    const r = await saveReport({ ...emptyReport(), title: 'Péndulo', subjectId: 's-1', measurements: [{ name: 'L', value: 1, uncertainty: 0.01, unit: 'm' }] })
+    const backup = await exportData()
+    expect(backup.data.reports).toHaveLength(1)
+    const parsed = parseBackup(JSON.stringify({ ...backup, schemaVersion: 8, data: { ...backup.data, reports: undefined } }))
+    expect(parsed.ok && parsed.backup.data.reports).toEqual([])
+    const remote = mapLocalToRemote(backup.data, 'u')
+    const [row] = remote.reports
+    const back = mapRemoteToLocal({
+      subjects: [], concepts: [], formulas: [], notes: [], questions: [], calculations: [], tasks: [], sessions: [], sketches: [], tools: [], kv: [], events: [], cards: [], card_reviews: [], exercises: [], exam_runs: [], dev_problems: [], datasets: [], exam_plans: [],
+      reports: [{ ...row!, created_at: row!.created_at!, updated_at: row!.updated_at!, user_id: 'u', subject_id: 's-1', note_id: null, dataset_id: null, concept_ids: [], measurements: [{ name: 'L', value: 1, uncertainty: 0.01, unit: 'm' }, { name: 'mala' }] as never, propagation: null }],
+    })
+    expect(back.reports[0]?.measurements).toEqual([{ name: 'L', value: 1, uncertainty: 0.01, unit: 'm' }])
+    await deleteSubject('s-1')
+    expect((await db.reports.get(r.id))?.subjectId).toBeNull()
   })
 })
 
@@ -302,7 +323,7 @@ describe('exportación e importación', () => {
     await writeLoadHours(22)
     await writeSubjectColor('s-1', '#5ee7f7')
     const backup = await exportData()
-    expect(backup.schemaVersion).toBe(8)
+    expect(backup.schemaVersion).toBe(10)
     expect(backup.data.events).toHaveLength(1)
     expect(backup.data.cards).toEqual([])
     expect(backup.data.events[0]).toMatchObject({ id: ev.id, skipOn: ['2026-04-06'], repeat: 'weekly' })
@@ -338,7 +359,7 @@ describe('exportación e importación', () => {
     await saveCard({ front: card.front, back: card.back })
     const again = await exportData()
     expect(again.data.cards).toHaveLength(1)
-    expect(again.schemaVersion).toBe(8)
+    expect(again.schemaVersion).toBe(10)
   })
 })
 
@@ -373,7 +394,7 @@ describe('sync a supabase', () => {
   })
   it('traduce una fila remota a la forma local', () => {
     const local = mapRemoteToLocal({
-      subjects: [], concepts: [], formulas: [], notes: [], questions: [], calculations: [], tasks: [], sessions: [], sketches: [], tools: [], kv: [], events: [], cards: [], card_reviews: [], exercises: [], exam_runs: [], datasets: [],
+      subjects: [], concepts: [], formulas: [], notes: [], questions: [], calculations: [], tasks: [], sessions: [], sketches: [], tools: [], kv: [], events: [], cards: [], card_reviews: [], exercises: [], exam_runs: [], datasets: [], reports: [], exam_plans: [],
       dev_problems: [{
         id: 'p1', user_id: 'u', title: 'Suma', text: '1+1', kind: 'expr', strategy: 'direct', lang: 'py', mode: 'guided', stage: 'code', revealed: 2,
         created_at: '2020-01-01T00:00:00.000Z', updated_at: '2020-01-02T00:00:00.000Z',

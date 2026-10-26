@@ -29,6 +29,8 @@ const TABLE_LABEL: Record<TableName, string> = {
   reviews: 'Repasos',
   exercises: 'Ejercicios',
   datasets: 'Series de datos',
+  reports: 'Informes',
+  examPlans: 'Planes de examen',
   examRuns: 'Simulados',
 }
 
