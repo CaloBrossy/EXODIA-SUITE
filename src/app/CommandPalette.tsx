@@ -46,6 +46,7 @@ const TOOLS: [string, string, string][] = [
   ['Referencias técnicas', '/workbench/refs', 'tabla periódica resistencias derivadas griego'],
   ['Planificador de examen', '/calendar', 'temas dominio repaso simulacro'],
   ['Plan de estudios', '/focus/plan', 'carrera correlativas materias aprobadas promedio'],
+  ['Estadísticas de estudio', '/focus/stats', 'racha pomodoro horas meta calor'],
 ]
 
 /** Evento global para abrir la búsqueda desde cualquier módulo; `detail` = texto inicial. */
