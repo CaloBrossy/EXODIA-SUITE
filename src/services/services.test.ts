@@ -32,7 +32,7 @@ describe('series de datos', () => {
     expect(remote.datasets[0]).toMatchObject({ name: 'Péndulo', subject_id: 's-1', fit: 'poly', degree: 3 })
     const [row] = remote.datasets
     const back = mapRemoteToLocal({
-      subjects: [], concepts: [], formulas: [], notes: [], questions: [], calculations: [], tasks: [], sessions: [], sketches: [], tools: [], kv: [], events: [], cards: [], card_reviews: [], exercises: [], exam_runs: [], dev_problems: [], reports: [], exam_plans: [], mistakes: [],
+      subjects: [], concepts: [], formulas: [], notes: [], questions: [], calculations: [], tasks: [], sessions: [], sketches: [], tools: [], kv: [], events: [], cards: [], card_reviews: [], exercises: [], exam_runs: [], dev_problems: [], reports: [], exam_plans: [], mistakes: [], library_items: [],
       datasets: [{ ...row!, created_at: row!.created_at!, updated_at: row!.updated_at!, user_id: 'u', subject_id: row!.subject_id ?? null, notes: row!.notes!, rows: [...(row!.rows as unknown[]), { x: 'mal' }] as never, x_axis: null as never, fit: 'raro', degree: row!.degree! }],
     })
     expect(back.datasets[0]).toMatchObject({ rows: [{ x: 1, y: 2, ex: null, ey: 0.1 }], xAxis: { label: '', unit: '', log: false }, fit: 'none', notes: 'medido' })
@@ -52,7 +52,7 @@ describe('informes', () => {
     const remote = mapLocalToRemote(backup.data, 'u')
     const [row] = remote.reports
     const back = mapRemoteToLocal({
-      subjects: [], concepts: [], formulas: [], notes: [], questions: [], calculations: [], tasks: [], sessions: [], sketches: [], tools: [], kv: [], events: [], cards: [], card_reviews: [], exercises: [], exam_runs: [], dev_problems: [], datasets: [], exam_plans: [], mistakes: [],
+      subjects: [], concepts: [], formulas: [], notes: [], questions: [], calculations: [], tasks: [], sessions: [], sketches: [], tools: [], kv: [], events: [], cards: [], card_reviews: [], exercises: [], exam_runs: [], dev_problems: [], datasets: [], exam_plans: [], mistakes: [], library_items: [],
       reports: [{ ...row!, created_at: row!.created_at!, updated_at: row!.updated_at!, user_id: 'u', subject_id: 's-1', note_id: null, dataset_id: null, concept_ids: [], measurements: [{ name: 'L', value: 1, uncertainty: 0.01, unit: 'm' }, { name: 'mala' }] as never, propagation: null }],
     })
     expect(back.reports[0]?.measurements).toEqual([{ name: 'L', value: 1, uncertainty: 0.01, unit: 'm' }])
@@ -323,7 +323,7 @@ describe('exportación e importación', () => {
     await writeLoadHours(22)
     await writeSubjectColor('s-1', '#5ee7f7')
     const backup = await exportData()
-    expect(backup.schemaVersion).toBe(11)
+    expect(backup.schemaVersion).toBe(12)
     expect(backup.data.events).toHaveLength(1)
     expect(backup.data.cards).toEqual([])
     expect(backup.data.events[0]).toMatchObject({ id: ev.id, skipOn: ['2026-04-06'], repeat: 'weekly' })
@@ -359,7 +359,7 @@ describe('exportación e importación', () => {
     await saveCard({ front: card.front, back: card.back })
     const again = await exportData()
     expect(again.data.cards).toHaveLength(1)
-    expect(again.schemaVersion).toBe(11)
+    expect(again.schemaVersion).toBe(12)
   })
 })
 
@@ -394,7 +394,7 @@ describe('sync a supabase', () => {
   })
   it('traduce una fila remota a la forma local', () => {
     const local = mapRemoteToLocal({
-      subjects: [], concepts: [], formulas: [], notes: [], questions: [], calculations: [], tasks: [], sessions: [], sketches: [], tools: [], kv: [], events: [], cards: [], card_reviews: [], exercises: [], exam_runs: [], datasets: [], reports: [], exam_plans: [], mistakes: [],
+      subjects: [], concepts: [], formulas: [], notes: [], questions: [], calculations: [], tasks: [], sessions: [], sketches: [], tools: [], kv: [], events: [], cards: [], card_reviews: [], exercises: [], exam_runs: [], datasets: [], reports: [], exam_plans: [], mistakes: [], library_items: [],
       dev_problems: [{
         id: 'p1', user_id: 'u', title: 'Suma', text: '1+1', kind: 'expr', strategy: 'direct', lang: 'py', mode: 'guided', stage: 'code', revealed: 2,
         created_at: '2020-01-01T00:00:00.000Z', updated_at: '2020-01-02T00:00:00.000Z',

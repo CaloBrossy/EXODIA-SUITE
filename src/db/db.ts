@@ -9,6 +9,7 @@ import type {
   ExamRun,
   Report,
   ExamPlan,
+  LibraryItem,
   Mistake,
   Exercise,
   DevProblem,
@@ -27,7 +28,7 @@ import { migrateConceptV2, migrateFormulaV2 } from './migrations'
 
 export const DB_NAME = 'exodia'
 /** Versión lógica del esquema; se incluye en las exportaciones JSON. */
-export const SCHEMA_VERSION = 11
+export const SCHEMA_VERSION = 12
 
 export class ExodiaDB extends Dexie {
   notes!: EntityTable<Note, 'id'>
@@ -51,6 +52,7 @@ export class ExodiaDB extends Dexie {
   reports!: EntityTable<Report, 'id'>
   examPlans!: EntityTable<ExamPlan, 'id'>
   mistakes!: EntityTable<Mistake, 'id'>
+  libraryItems!: EntityTable<LibraryItem, 'id'>
 
   constructor(name = DB_NAME) {
     super(name)
@@ -85,6 +87,7 @@ export class ExodiaDB extends Dexie {
     this.version(9).stores({ reports: 'id, subjectId, updatedAt' })
     this.version(10).stores({ examPlans: 'id, eventId, subjectId, updatedAt' })
     this.version(11).stores({ mistakes: 'id, subjectId, kind, at, updatedAt' })
+    this.version(12).stores({ libraryItems: 'id, subjectId, kind, updatedAt, *tags' })
     this.on('populate', (tx) => seedDatabase(tx))
   }
 }
@@ -113,5 +116,6 @@ export const TABLE_NAMES = [
   'reports',
   'examPlans',
   'mistakes',
+  'libraryItems',
 ] as const
 export type TableName = (typeof TABLE_NAMES)[number]

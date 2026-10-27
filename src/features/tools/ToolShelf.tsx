@@ -6,7 +6,7 @@ import type { ToolLink } from '@/db/models'
 import { deleteTool, moveTool, restoreDefaultTools, saveTool } from '@/services/tools'
 import { useOnline } from '@/hooks/misc'
 import { useFeedback } from '@/components/feedback'
-import { Button, Field, Input, Loading, PageHeader, Panel, Textarea } from '@/components/ui'
+import { Button, ButtonLink, Field, Input, Loading, PageHeader, Panel, Textarea } from '@/components/ui'
 
 function ToolForm({ initial, onDone }: { initial?: ToolLink; onDone: () => void }) {
   const { fail, notify } = useFeedback()
@@ -54,6 +54,7 @@ export default function ToolShelf() {
         subtitle="Accesos a herramientas externas maduras. Se abren en una pestaña nueva y requieren conexión a Internet."
         actions={
           <>
+            <ButtonLink size="sm" to="/library">Biblioteca</ButtonLink>
             <Button size="sm" onClick={() => restoreDefaultTools().catch(fail)}>Restaurar predeterminados</Button>
             <Button size="sm" variant="primary" onClick={() => setEditing('new')}><Plus size={14} /> Agregar</Button>
           </>

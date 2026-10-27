@@ -32,6 +32,7 @@ const TABLE_LABEL: Record<TableName, string> = {
   reports: 'Informes',
   examPlans: 'Planes de examen',
   mistakes: 'Errores',
+  libraryItems: 'Biblioteca',
   examRuns: 'Simulados',
 }
 
@@ -54,6 +55,7 @@ function CloudSync() {
       if (missed.includes('cards')) notify('Las tarjetas no se sincronizaron: falta la tabla remota.', 'info')
       if (missed.includes('card_reviews')) notify('Los repasos no se sincronizaron: falta la tabla remota.', 'info')
       if (missed.includes('mistakes')) notify('Los errores no se sincronizaron: falta la tabla remota.', 'info')
+      if (missed.includes('library_items')) notify('La biblioteca no se sincronizó: falta la tabla remota.', 'info')
     } catch (e) {
       fail(e)
     } finally {
@@ -100,6 +102,9 @@ function CloudSync() {
       )}
       {skipped.includes('mistakes') && (
         <ErrorText>La tabla remota de errores no existe. Quedan solo en este dispositivo hasta que apliques la migración mistakes.</ErrorText>
+      )}
+      {skipped.includes('library_items') && (
+        <ErrorText>La tabla remota de la biblioteca no existe. Queda solo en este dispositivo hasta que apliques la migración library.</ErrorText>
       )}
       <div className="flex flex-wrap gap-2">
         <Button variant="primary" disabled={busy} onClick={() => void run(pushLocalToSupabase, 'Subida lista')}><CloudUpload size={15} /> Subir este dispositivo</Button>

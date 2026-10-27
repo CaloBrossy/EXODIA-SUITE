@@ -48,6 +48,7 @@ const TOOLS: [string, string, string][] = [
   ['Plan de estudios', '/focus/plan', 'carrera correlativas materias aprobadas promedio'],
   ['Estadísticas de estudio', '/focus/stats', 'racha pomodoro horas meta calor'],
   ['Registro de errores', '/exercises/errores', 'fallos patrones repasar'],
+  ['Biblioteca', '/library', 'libros capítulos lectura progreso'],
 ]
 
 /** Evento global para abrir la búsqueda desde cualquier módulo; `detail` = texto inicial. */
@@ -62,7 +63,7 @@ export function CommandPalette({ open, initialQuery = '', onClose }: { open: boo
   const navigate = useNavigate()
 
   const data = useLiveQuery(
-    async () => (open ? { notes: await db.notes.toArray(), concepts: await db.concepts.toArray(), formulas: await db.formulas.toArray(), tools: await db.tools.toArray(), events: await db.events.toArray(), cards: await db.cards.toArray(), exercises: await db.exercises.toArray(), datasets: await db.datasets.toArray(), reports: await db.reports.toArray(), mistakes: await db.mistakes.toArray() } : null),
+    async () => (open ? { notes: await db.notes.toArray(), concepts: await db.concepts.toArray(), formulas: await db.formulas.toArray(), tools: await db.tools.toArray(), events: await db.events.toArray(), cards: await db.cards.toArray(), exercises: await db.exercises.toArray(), datasets: await db.datasets.toArray(), reports: await db.reports.toArray(), mistakes: await db.mistakes.toArray(), library: await db.libraryItems.toArray() } : null),
     [open],
   )
 
@@ -113,6 +114,7 @@ export function CommandPalette({ open, initialQuery = '', onClose }: { open: boo
       for (const r of searchRefs(q)) out.push({ id: r.id, label: r.title, kind: r.section, to: `/workbench/refs?q=${encodeURIComponent(r.title)}` })
       for (const r of data.reports) if (matchesQuery(q, r.title)) out.push({ id: r.id, label: r.title, kind: 'Informe', to: `/workbench/reports/${r.id}` })
       for (const m of data.mistakes) if (matchesQuery(q, m.what, m.topic, m.kind)) out.push({ id: m.id, label: m.what.slice(0, 80), kind: 'Error', to: '/exercises/errores' })
+      for (const b of data.library) if (matchesQuery(q, b.title, b.author, b.tags)) out.push({ id: b.id, label: b.title, kind: 'Biblioteca', to: '/library' })
     }
     return out.slice(0, 40)
   }, [q, data])

@@ -494,6 +494,57 @@ export type Database = {
         }
         Relationships: []
       }
+      library_items: {
+        Row: {
+          author: string
+          chapters: Json
+          created_at: string
+          favorite: boolean
+          id: string
+          kind: string
+          notes: string
+          physical: string
+          subject_id: string | null
+          tags: string[]
+          title: string
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          author?: string
+          chapters?: Json
+          created_at?: string
+          favorite?: boolean
+          id: string
+          kind: string
+          notes?: string
+          physical?: string
+          subject_id?: string | null
+          tags?: string[]
+          title: string
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Update: {
+          author?: string
+          chapters?: Json
+          created_at?: string
+          favorite?: boolean
+          id?: string
+          kind?: string
+          notes?: string
+          physical?: string
+          subject_id?: string | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       exam_runs: {
         Row: {
           count: number

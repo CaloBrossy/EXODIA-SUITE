@@ -31,9 +31,12 @@ import type {
   Task,
   ToolLink,
   Mistake,
+  LibraryItem,
+  Chapter,
   MistakeOrigin,
+  LibraryKind,
 } from '@/db/models'
-import { DatasetAxisSchema, DatasetRowSchema, DATASET_FITS, ExamSessionSchema, ExamTopicSchema, MISTAKE_ORIGINS, MeasurementSchema, PropagationInputSchema, REPORT_SECTIONS, ReportSectionSchema, type Dataset, type DatasetAxis, type DatasetFit, type ExamPlan, type ExamSession, type ExamTopic, type Measurement, type PropagationInput, type Report, type ReportSection, SubjectPlanSchema } from '@/db/models'
+import { ChapterSchema, DatasetAxisSchema, DatasetRowSchema, DATASET_FITS, ExamSessionSchema, ExamTopicSchema, LIBRARY_KINDS, MISTAKE_ORIGINS, MeasurementSchema, PropagationInputSchema, REPORT_SECTIONS, ReportSectionSchema, type Dataset, type DatasetAxis, type DatasetFit, type ExamPlan, type ExamSession, type ExamTopic, type Measurement, type PropagationInput, type Report, type ReportSection, SubjectPlanSchema } from '@/db/models'
 import { supabase } from '@/lib/supabase'
 import type { Backup } from './backup'
 import { exportData, importData } from './backup'
@@ -332,6 +335,22 @@ export function mapLocalToRemote(data: Backup['data'], userId: string) {
       created_at: iso(m.createdAt),
       updated_at: iso(m.updatedAt),
     })),
+    library_items: data.libraryItems.map((item) => ({
+      id: item.id,
+      user_id: userId,
+      title: item.title,
+      author: item.author,
+      kind: item.kind,
+      subject_id: fk(item.subjectId, subjects),
+      url: item.url,
+      physical: item.physical,
+      chapters: item.chapters.map((c) => ({ ...c, noteId: fk(c.noteId, notes), conceptId: fk(c.conceptId, concepts) })) as Json,
+      notes: item.notes,
+      tags: item.tags,
+      favorite: item.favorite,
+      created_at: iso(item.createdAt),
+      updated_at: iso(item.updatedAt),
+    })),
   }
 }
 
@@ -357,6 +376,7 @@ const ORDER = [
   'reports',
   'exam_plans',
   'mistakes',
+  'library_items',
 ] as const
 
 const MISSING_TABLE = /could not find the table|does not exist|schema cache/i
@@ -490,6 +510,8 @@ const reportPropagation = (v: Json | null): PropagationInput | null => {
 const examTopics = (v: Json): ExamTopic[] => (Array.isArray(v) ? v.flatMap((s) => { const p = ExamTopicSchema.safeParse(s); return p.success ? [p.data] : [] }) : [])
 const examSessions = (v: Json): ExamSession[] => (Array.isArray(v) ? v.flatMap((s) => { const p = ExamSessionSchema.safeParse(s); return p.success ? [p.data] : [] }) : [])
 const mistakeOrigin = (v: string): MistakeOrigin | null => (MISTAKE_ORIGINS.includes(v as MistakeOrigin) ? (v as MistakeOrigin) : null)
+const libraryKind = (v: string): LibraryKind | null => (LIBRARY_KINDS.includes(v as LibraryKind) ? (v as LibraryKind) : null)
+const chaptersOf = (v: Json): Chapter[] => (Array.isArray(v) ? v.flatMap((s) => { const p = ChapterSchema.safeParse(s); return p.success ? [p.data] : [] }) : [])
 
 export function mapRemoteToLocal(rows: {
   subjects: Row<'subjects'>[]
@@ -513,6 +535,7 @@ export function mapRemoteToLocal(rows: {
   reports: Row<'reports'>[]
   exam_plans: Row<'exam_plans'>[]
   mistakes: Row<'mistakes'>[]
+  library_items: Row<'library_items'>[]
 }): Backup['data'] {
   return {
     subjects: rows.subjects.map((s) => ({
@@ -693,6 +716,25 @@ export function mapRemoteToLocal(rows: {
         updatedAt: ms(m.updated_at),
       }]
     }),
+    libraryItems: rows.library_items.flatMap((item) => {
+      const kind = libraryKind(item.kind)
+      if (!kind) return []
+      return [{
+        id: item.id,
+        title: item.title,
+        author: item.author,
+        kind,
+        subjectId: item.subject_id,
+        url: item.url,
+        physical: item.physical,
+        chapters: chaptersOf(item.chapters),
+        notes: item.notes,
+        tags: strs(item.tags),
+        favorite: item.favorite,
+        createdAt: ms(item.created_at),
+        updatedAt: ms(item.updated_at),
+      }]
+    }),
   }
 }
 
@@ -718,6 +760,7 @@ const stampOf = {
   reports: (r: Report) => r.updatedAt,
   examPlans: (r: ExamPlan) => r.updatedAt,
   mistakes: (r: Mistake) => r.updatedAt,
+  libraryItems: (r: LibraryItem) => r.updatedAt,
 } as const
 
 async function currentUserId(): Promise<string> {
@@ -741,15 +784,15 @@ async function fetchRemote(): Promise<Backup['data']> {
     }
     return data ?? []
   }
-  const [subjects, concepts, formulas, notes, questions, calculations, tasks, sessions, sketches, tools, kv, events, cards, card_reviews, exercises, exam_runs, dev_problems, datasets, reports, exam_plans, mistakes] = await Promise.all([
-    load('subjects'), load('concepts'), load('formulas'), load('notes'), load('questions'), load('calculations'), load('tasks'), load('sessions'), load('sketches'), load('tools'), load('kv'), load('events'), load('cards'), load('card_reviews'), load('exercises'), load('exam_runs'), load('dev_problems'), load('datasets'), load('reports'), load('exam_plans'), load('mistakes'),
+  const [subjects, concepts, formulas, notes, questions, calculations, tasks, sessions, sketches, tools, kv, events, cards, card_reviews, exercises, exam_runs, dev_problems, datasets, reports, exam_plans, mistakes, library_items] = await Promise.all([
+    load('subjects'), load('concepts'), load('formulas'), load('notes'), load('questions'), load('calculations'), load('tasks'), load('sessions'), load('sketches'), load('tools'), load('kv'), load('events'), load('cards'), load('card_reviews'), load('exercises'), load('exam_runs'), load('dev_problems'), load('datasets'), load('reports'), load('exam_plans'), load('mistakes'), load('library_items'),
   ])
-  return mapRemoteToLocal({ subjects, concepts, formulas, notes, questions, calculations, tasks, sessions, sketches, tools, kv, events, cards, card_reviews, exercises, exam_runs, dev_problems, datasets, reports, exam_plans, mistakes })
+  return mapRemoteToLocal({ subjects, concepts, formulas, notes, questions, calculations, tasks, sessions, sketches, tools, kv, events, cards, card_reviews, exercises, exam_runs, dev_problems, datasets, reports, exam_plans, mistakes, library_items })
 }
 
 async function hasPersonalData(): Promise<boolean> {
   const counts = await Promise.all([
-    db.notes.count(), db.questions.count(), db.calculations.count(), db.tasks.count(), db.sessions.count(), db.sketches.count(), db.devProblems.count(), db.events.count(), db.cards.count(), db.exercises.count(), db.examRuns.count(), db.datasets.count(), db.reports.count(), db.examPlans.count(), db.mistakes.count(),
+    db.notes.count(), db.questions.count(), db.calculations.count(), db.tasks.count(), db.sessions.count(), db.sketches.count(), db.devProblems.count(), db.events.count(), db.cards.count(), db.exercises.count(), db.examRuns.count(), db.datasets.count(), db.reports.count(), db.examPlans.count(), db.mistakes.count(), db.libraryItems.count(),
   ])
   if (counts.some((n) => n > 0)) return true
   const [concepts, formulas, subjects, tools, kv] = await Promise.all([
@@ -814,6 +857,7 @@ export async function pullRemoteToLocal(mode: PullMode = 'merge'): Promise<numbe
       reports: mergeRows(local.reports, remote.reports, stampOf.reports, mode),
       examPlans: mergeRows(local.examPlans, remote.examPlans, stampOf.examPlans, mode),
       mistakes: mergeRows(local.mistakes, remote.mistakes, stampOf.mistakes, mode),
+      libraryItems: mergeRows(local.libraryItems, remote.libraryItems, stampOf.libraryItems, mode),
     }
     await importData({ app: 'exodia', schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), data: next }, 'replace')
     setConflict(false)

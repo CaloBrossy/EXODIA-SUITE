@@ -495,3 +495,45 @@ export const MistakeSchema = z.object({
 })
 export type Mistake = z.infer<typeof MistakeSchema>
 export type MistakeOrigin = (typeof MISTAKE_ORIGINS)[number]
+
+export const LIBRARY_KINDS = ['libro', 'pdf', 'guia', 'apunte', 'video', 'link'] as const
+export const LibraryKindLabel: Record<(typeof LIBRARY_KINDS)[number], string> = {
+  libro: 'Libro',
+  pdf: 'PDF',
+  guia: 'Guía',
+  apunte: 'Apunte',
+  video: 'Video',
+  link: 'Enlace',
+}
+export const CHAPTER_STATUSES = ['pendiente', 'leyendo', 'leido'] as const
+export const ChapterStatusLabel: Record<(typeof CHAPTER_STATUSES)[number], string> = {
+  pendiente: 'Pendiente',
+  leyendo: 'Leyendo',
+  leido: 'Leído',
+}
+export const ChapterSchema = z.object({
+  id,
+  title: z.string().min(1).max(300),
+  status: z.enum(CHAPTER_STATUSES),
+  noteId: optionalId,
+  conceptId: optionalId,
+})
+export const LibraryItemSchema = z.object({
+  id,
+  title: z.string().min(1).max(300),
+  author: z.string().max(200),
+  kind: z.enum(LIBRARY_KINDS),
+  subjectId: optionalId,
+  url: z.string().max(2_000),
+  physical: z.string().max(300),
+  chapters: z.array(ChapterSchema).max(200),
+  notes: z.string().max(50_000),
+  tags,
+  favorite: z.boolean(),
+  createdAt: ts,
+  updatedAt: ts,
+})
+export type Chapter = z.infer<typeof ChapterSchema>
+export type LibraryItem = z.infer<typeof LibraryItemSchema>
+export type LibraryKind = (typeof LIBRARY_KINDS)[number]
+export type ChapterStatus = (typeof CHAPTER_STATUSES)[number]
