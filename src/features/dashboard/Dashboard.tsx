@@ -19,6 +19,7 @@ import { formatClock, PhaseLabel, remaining } from '@/lib/pomodoro'
 import { usePomodoro } from '@/hooks/usePomodoro'
 import { QuestionsPanel } from '@/features/knowledge/QuestionsPanel'
 import { openSearch } from '@/app/CommandPalette'
+import { topKindThisMonth } from '@/lib/mistakeStats'
 import { NAV } from '@/app/nav'
 
 const INVESTIGATION_TEMPLATE = `## Pregunta
@@ -90,7 +91,7 @@ export default function Dashboard() {
   const data = useLiveQuery(async () => {
     const dayStart = startOfDay(Date.now())
     const now = Date.now()
-    const [notes, tasks, viewed, subjects, noteCount, conceptCount, todaySessions, someConcepts, events, cards, newLimit] = await Promise.all([
+    const [notes, tasks, viewed, subjects, noteCount, conceptCount, todaySessions, someConcepts, events, cards, newLimit, mistakes] = await Promise.all([
       db.notes.orderBy('updatedAt').reverse().limit(4).toArray(),
       db.tasks.toArray(),
       db.concepts.orderBy('lastViewedAt').reverse().limit(5).toArray(),
@@ -102,6 +103,7 @@ export default function Dashboard() {
       listEvents(),
       listCards(),
       readNewLimit(),
+      db.mistakes.toArray(),
     ])
     const work = todaySessions.filter((s) => s.phase === 'work' && s.endedAt >= dayStart)
     const recent = viewed.filter((c) => c.lastViewedAt)
@@ -122,6 +124,7 @@ export default function Dashboard() {
       dueCards: reviewQueue(cards, now, newLimit),
       career: subjects.some(inPlan) ? planStats(subjects.filter(inPlan), now) : null,
       careerOpen: [...eligibilityMap(subjects.filter(inPlan)).values()].filter((e) => e.canCourse).length,
+      topMistake: topKindThisMonth(mistakes, now),
     }
   }, [])
 
@@ -251,6 +254,16 @@ export default function Dashboard() {
             <ButtonLink size="sm" variant="ghost" to="/focus/plan">Plan <ArrowRight size={13} /></ButtonLink>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-sunken"><div className="h-full bg-accent" style={{ width: `${data.career.progress * 100}%` }} /></div>
+        </section>
+      )}
+
+      {data?.topMistake && (
+        <section className="glass stagger flex flex-wrap items-end justify-between gap-2 rounded-2xl p-4">
+          <div>
+            <p className="eyebrow">Tu error más repetido este mes</p>
+            <p className="text-sm">{data.topMistake.kind} · {data.topMistake.count}</p>
+          </div>
+          <ButtonLink size="sm" variant="ghost" to="/exercises/errores">Ver errores <ArrowRight size={13} /></ButtonLink>
         </section>
       )}
 

@@ -22,6 +22,7 @@ const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'))
 const CalendarPage = lazy(() => import('@/features/calendar/CalendarPage'))
 const ReviewPage = lazy(() => import('@/features/review/ReviewPage'))
 const ExercisesPage = lazy(() => import('@/features/exercises/ExercisesPage'))
+const MistakesPage = lazy(() => import('@/features/exercises/MistakesPage'))
 const LandingPage = lazy(() => import('@/features/landing/LandingPage'))
 const AuthPage = lazy(() => import('@/features/auth/AuthPage'))
 
@@ -110,6 +111,7 @@ export function App() {
               <Route path="calendar" element={<CalendarPage />} />
               <Route path="review" element={<ReviewPage />} />
               <Route path="exercises" element={<ExercisesPage />} />
+              <Route path="exercises/errores" element={<MistakesPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

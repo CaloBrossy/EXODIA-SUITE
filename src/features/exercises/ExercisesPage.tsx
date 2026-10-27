@@ -11,7 +11,7 @@ import { Markdown } from '@/components/Markdown'
 import { EntityPicker } from '@/components/EntityPicker'
 import { useFeedback } from '@/components/feedback'
 import { useNow, usePomodoro } from '@/hooks/usePomodoro'
-import { Button, Empty, Field, Input, Loading, PageHeader, Panel, Select, Tabs, Textarea } from '@/components/ui'
+import { Button, ButtonLink, Empty, Field, Input, Loading, PageHeader, Panel, Select, Tabs, Textarea } from '@/components/ui'
 
 type Tab = 'banco' | 'practica' | 'simulado'
 
@@ -112,6 +112,7 @@ export default function ExercisesPage() {
         actions={
           <div className="flex flex-wrap gap-2">
             <Tabs value={tab} onChange={setTab} items={[{ id: 'banco', label: 'Banco' }, { id: 'practica', label: 'Práctica' }, { id: 'simulado', label: 'Simulado' }]} />
+            <ButtonLink to="/exercises/errores">Errores</ButtonLink>
             <Button onClick={() => { setEditing('new'); setTab('banco') }}>Nuevo</Button>
           </div>
         }

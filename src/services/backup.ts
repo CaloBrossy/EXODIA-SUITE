@@ -9,6 +9,7 @@ import {
   DatasetSchema,
   ReportSchema,
   ExamPlanSchema,
+  MistakeSchema,
   ExamRunSchema,
   ExerciseSchema,
   DevProblemSchema,
@@ -48,6 +49,7 @@ const DataSchema = z.object({
   datasets: z.array(DatasetSchema).default([]),
   reports: z.array(ReportSchema).default([]),
   examPlans: z.array(ExamPlanSchema).default([]),
+  mistakes: z.array(MistakeSchema).default([]),
 })
 
 export const BackupSchema = z.object({
@@ -99,6 +101,7 @@ function migrateBackup(raw: unknown): unknown {
   // v9 agrega reports; el esquema completa con [] si falta.
   if (b.schemaVersion < 9) b.schemaVersion = 9
   if (b.schemaVersion < 10) b.schemaVersion = 10
+  if (b.schemaVersion < 11) b.schemaVersion = 11
   return b
 }
 

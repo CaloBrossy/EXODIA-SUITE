@@ -30,8 +30,10 @@ import type {
   SubjectPlan,
   Task,
   ToolLink,
+  Mistake,
+  MistakeOrigin,
 } from '@/db/models'
-import { DatasetAxisSchema, DatasetRowSchema, DATASET_FITS, ExamSessionSchema, ExamTopicSchema, MeasurementSchema, PropagationInputSchema, REPORT_SECTIONS, ReportSectionSchema, type Dataset, type DatasetAxis, type DatasetFit, type ExamPlan, type ExamSession, type ExamTopic, type Measurement, type PropagationInput, type Report, type ReportSection, SubjectPlanSchema } from '@/db/models'
+import { DatasetAxisSchema, DatasetRowSchema, DATASET_FITS, ExamSessionSchema, ExamTopicSchema, MISTAKE_ORIGINS, MeasurementSchema, PropagationInputSchema, REPORT_SECTIONS, ReportSectionSchema, type Dataset, type DatasetAxis, type DatasetFit, type ExamPlan, type ExamSession, type ExamTopic, type Measurement, type PropagationInput, type Report, type ReportSection, SubjectPlanSchema } from '@/db/models'
 import { supabase } from '@/lib/supabase'
 import type { Backup } from './backup'
 import { exportData, importData } from './backup'
@@ -50,6 +52,8 @@ export function mapLocalToRemote(data: Backup['data'], userId: string) {
   const concepts = new Set(data.concepts.map((c) => c.id))
   const notes = new Set(data.notes.map((n) => n.id))
   const tasks = new Set(data.tasks.map((t) => t.id))
+  const exerciseIds = new Set(data.exercises.map((e) => e.id))
+  const cardIds = new Set(data.cards.map((c) => c.id))
   const fk = (id: string | null | undefined, known: Set<string>) => (id && known.has(id) ? id : null)
 
   return {
@@ -311,6 +315,23 @@ export function mapLocalToRemote(data: Backup['data'], userId: string) {
       created_at: iso(p.createdAt),
       updated_at: iso(p.updatedAt),
     })),
+    mistakes: data.mistakes.map((m) => ({
+      id: m.id,
+      user_id: userId,
+      subject_id: fk(m.subjectId, subjects),
+      topic: m.topic,
+      what: m.what,
+      solution: m.solution,
+      kind: m.kind,
+      origin: m.origin,
+      at: iso(m.at),
+      overcome: m.overcome,
+      exercise_id: fk(m.exerciseId, exerciseIds),
+      concept_id: fk(m.conceptId, concepts),
+      card_id: fk(m.cardId, cardIds),
+      created_at: iso(m.createdAt),
+      updated_at: iso(m.updatedAt),
+    })),
   }
 }
 
@@ -335,6 +356,7 @@ const ORDER = [
   'datasets',
   'reports',
   'exam_plans',
+  'mistakes',
 ] as const
 
 const MISSING_TABLE = /could not find the table|does not exist|schema cache/i
@@ -467,6 +489,7 @@ const reportPropagation = (v: Json | null): PropagationInput | null => {
 }
 const examTopics = (v: Json): ExamTopic[] => (Array.isArray(v) ? v.flatMap((s) => { const p = ExamTopicSchema.safeParse(s); return p.success ? [p.data] : [] }) : [])
 const examSessions = (v: Json): ExamSession[] => (Array.isArray(v) ? v.flatMap((s) => { const p = ExamSessionSchema.safeParse(s); return p.success ? [p.data] : [] }) : [])
+const mistakeOrigin = (v: string): MistakeOrigin | null => (MISTAKE_ORIGINS.includes(v as MistakeOrigin) ? (v as MistakeOrigin) : null)
 
 export function mapRemoteToLocal(rows: {
   subjects: Row<'subjects'>[]
@@ -489,6 +512,7 @@ export function mapRemoteToLocal(rows: {
   datasets: Row<'datasets'>[]
   reports: Row<'reports'>[]
   exam_plans: Row<'exam_plans'>[]
+  mistakes: Row<'mistakes'>[]
 }): Backup['data'] {
   return {
     subjects: rows.subjects.map((s) => ({
@@ -649,6 +673,26 @@ export function mapRemoteToLocal(rows: {
       createdAt: ms(p.created_at),
       updatedAt: ms(p.updated_at),
     })),
+    mistakes: rows.mistakes.flatMap((m) => {
+      const origin = mistakeOrigin(m.origin)
+      if (!origin) return []
+      return [{
+        id: m.id,
+        subjectId: m.subject_id,
+        topic: m.topic,
+        what: m.what,
+        solution: m.solution,
+        kind: m.kind,
+        origin,
+        at: ms(m.at),
+        overcome: m.overcome,
+        exerciseId: m.exercise_id,
+        conceptId: m.concept_id,
+        cardId: m.card_id,
+        createdAt: ms(m.created_at),
+        updatedAt: ms(m.updated_at),
+      }]
+    }),
   }
 }
 
@@ -673,6 +717,7 @@ const stampOf = {
   datasets: (r: Dataset) => r.updatedAt,
   reports: (r: Report) => r.updatedAt,
   examPlans: (r: ExamPlan) => r.updatedAt,
+  mistakes: (r: Mistake) => r.updatedAt,
 } as const
 
 async function currentUserId(): Promise<string> {
@@ -696,15 +741,15 @@ async function fetchRemote(): Promise<Backup['data']> {
     }
     return data ?? []
   }
-  const [subjects, concepts, formulas, notes, questions, calculations, tasks, sessions, sketches, tools, kv, events, cards, card_reviews, exercises, exam_runs, dev_problems, datasets, reports, exam_plans] = await Promise.all([
-    load('subjects'), load('concepts'), load('formulas'), load('notes'), load('questions'), load('calculations'), load('tasks'), load('sessions'), load('sketches'), load('tools'), load('kv'), load('events'), load('cards'), load('card_reviews'), load('exercises'), load('exam_runs'), load('dev_problems'), load('datasets'), load('reports'), load('exam_plans'),
+  const [subjects, concepts, formulas, notes, questions, calculations, tasks, sessions, sketches, tools, kv, events, cards, card_reviews, exercises, exam_runs, dev_problems, datasets, reports, exam_plans, mistakes] = await Promise.all([
+    load('subjects'), load('concepts'), load('formulas'), load('notes'), load('questions'), load('calculations'), load('tasks'), load('sessions'), load('sketches'), load('tools'), load('kv'), load('events'), load('cards'), load('card_reviews'), load('exercises'), load('exam_runs'), load('dev_problems'), load('datasets'), load('reports'), load('exam_plans'), load('mistakes'),
   ])
-  return mapRemoteToLocal({ subjects, concepts, formulas, notes, questions, calculations, tasks, sessions, sketches, tools, kv, events, cards, card_reviews, exercises, exam_runs, dev_problems, datasets, reports, exam_plans })
+  return mapRemoteToLocal({ subjects, concepts, formulas, notes, questions, calculations, tasks, sessions, sketches, tools, kv, events, cards, card_reviews, exercises, exam_runs, dev_problems, datasets, reports, exam_plans, mistakes })
 }
 
 async function hasPersonalData(): Promise<boolean> {
   const counts = await Promise.all([
-    db.notes.count(), db.questions.count(), db.calculations.count(), db.tasks.count(), db.sessions.count(), db.sketches.count(), db.devProblems.count(), db.events.count(), db.cards.count(), db.exercises.count(), db.examRuns.count(), db.datasets.count(), db.reports.count(), db.examPlans.count(),
+    db.notes.count(), db.questions.count(), db.calculations.count(), db.tasks.count(), db.sessions.count(), db.sketches.count(), db.devProblems.count(), db.events.count(), db.cards.count(), db.exercises.count(), db.examRuns.count(), db.datasets.count(), db.reports.count(), db.examPlans.count(), db.mistakes.count(),
   ])
   if (counts.some((n) => n > 0)) return true
   const [concepts, formulas, subjects, tools, kv] = await Promise.all([
@@ -768,6 +813,7 @@ export async function pullRemoteToLocal(mode: PullMode = 'merge'): Promise<numbe
       datasets: mergeRows(local.datasets, remote.datasets, stampOf.datasets, mode),
       reports: mergeRows(local.reports, remote.reports, stampOf.reports, mode),
       examPlans: mergeRows(local.examPlans, remote.examPlans, stampOf.examPlans, mode),
+      mistakes: mergeRows(local.mistakes, remote.mistakes, stampOf.mistakes, mode),
     }
     await importData({ app: 'exodia', schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), data: next }, 'replace')
     setConflict(false)

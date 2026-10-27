@@ -459,3 +459,39 @@ export type ReportSection = z.infer<typeof ReportSectionSchema>
 export type Measurement = z.infer<typeof MeasurementSchema>
 export type PropagationInput = z.infer<typeof PropagationInputSchema>
 export type Report = z.infer<typeof ReportSchema>
+
+export const MISTAKE_ORIGINS = ['ejercicio', 'parcial', 'practica'] as const
+export const MistakeOriginLabel: Record<(typeof MISTAKE_ORIGINS)[number], string> = {
+  ejercicio: 'Ejercicio',
+  parcial: 'Parcial',
+  practica: 'Práctica',
+}
+export const MISTAKE_KINDS = [
+  'de signo',
+  'de cálculo',
+  'de concepto',
+  'de unidades',
+  'no leí el enunciado',
+  'de método',
+  'de tiempo',
+  'otro',
+] as const
+
+export const MistakeSchema = z.object({
+  id,
+  subjectId: optionalId,
+  topic: z.string().max(200),
+  what: z.string().min(1).max(20_000),
+  solution: z.string().max(20_000),
+  kind: z.string().min(1).max(80),
+  origin: z.enum(MISTAKE_ORIGINS),
+  at: ts,
+  overcome: z.boolean(),
+  exerciseId: optionalId,
+  conceptId: optionalId,
+  cardId: optionalId,
+  createdAt: ts,
+  updatedAt: ts,
+})
+export type Mistake = z.infer<typeof MistakeSchema>
+export type MistakeOrigin = (typeof MISTAKE_ORIGINS)[number]

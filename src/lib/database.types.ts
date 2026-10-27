@@ -440,6 +440,60 @@ export type Database = {
         }
         Relationships: []
       }
+      mistakes: {
+        Row: {
+          at: string
+          card_id: string | null
+          concept_id: string | null
+          created_at: string
+          exercise_id: string | null
+          id: string
+          kind: string
+          origin: string
+          overcome: boolean
+          solution: string
+          subject_id: string | null
+          topic: string
+          updated_at: string
+          user_id: string
+          what: string
+        }
+        Insert: {
+          at: string
+          card_id?: string | null
+          concept_id?: string | null
+          created_at?: string
+          exercise_id?: string | null
+          id: string
+          kind: string
+          origin: string
+          overcome?: boolean
+          solution?: string
+          subject_id?: string | null
+          topic?: string
+          updated_at?: string
+          user_id?: string
+          what: string
+        }
+        Update: {
+          at?: string
+          card_id?: string | null
+          concept_id?: string | null
+          created_at?: string
+          exercise_id?: string | null
+          id?: string
+          kind?: string
+          origin?: string
+          overcome?: boolean
+          solution?: string
+          subject_id?: string | null
+          topic?: string
+          updated_at?: string
+          user_id?: string
+          what?: string
+        }
+        Relationships: []
+      }
       exam_runs: {
         Row: {
           count: number

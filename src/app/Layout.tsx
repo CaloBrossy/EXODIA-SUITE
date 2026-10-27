@@ -74,6 +74,7 @@ export function Layout() {
   useHotkeys([
     { combo: 'mod+k', handler: openPalette, allowInInputs: true },
     { combo: 'alt+n', handler: () => void newNote(), allowInInputs: true },
+    { combo: 'alt+e', handler: () => navigate('/exercises/errores?nuevo=1') },
     ...NAV.map((n, i) => ({ combo: `alt+${i + 1}`, handler: () => navigate(n.to), allowInInputs: true })),
   ])
 
