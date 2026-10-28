@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CalcError, evaluateExpression as ev, formatValue, freeSymbols } from './calculator'
+import { CalcError, equationSides, evaluateExpression as ev, formatValue, freeSymbols, sameValue } from './calculator'
 
 const num = (expr: string, opts = {}) => ev(expr, opts) as number
 
@@ -75,6 +75,14 @@ describe('calculadora científica', () => {
       'createUnit("foo")',
     ]
     for (const e of bad) expect(() => ev(e), e).toThrow(CalcError)
+  })
+
+  it('separa una ecuación y compara los dos lados', () => {
+    expect(equationSides('x^2 + 1 = 0')).toEqual({ lhs: 'x^2 + 1', rhs: '0' })
+    expect(equationSides('2 + 2')).toBeNull()
+    expect(equationSides('1 == 1')).toBe('many')
+    expect(sameValue(0.1 + 0.2, 0.3)).toBe(true)
+    expect(sameValue(2, 3)).toBe(false)
   })
 
   it('formatos de salida', () => {

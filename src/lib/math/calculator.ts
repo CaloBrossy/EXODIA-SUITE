@@ -42,6 +42,24 @@ export function isIdentifier(s: string): boolean {
   return IDENTIFIER.test(s) && !ALLOWED_FUNCTIONS.has(s) && !(s in CONSTANTS)
 }
 
+/** Un solo «=» separa una ecuación. Varios «=» no se interpretan. */
+export function equationSides(input: string): { lhs: string; rhs: string } | 'many' | null {
+  const expr = normalize(input)
+  const count = expr.split('=').length - 1
+  if (count === 0) return null
+  if (count !== 1) return 'many'
+  const [lhs, rhs] = expr.split('=').map((s) => s.trim())
+  if (!lhs || !rhs) return 'many'
+  return { lhs, rhs }
+}
+
+export function sameValue(a: CalcValue, b: CalcValue): boolean {
+  const ca = typeof a === 'number' ? { re: a, im: 0 } : a
+  const cb = typeof b === 'number' ? { re: b, im: 0 } : b
+  const scale = Math.max(1, Math.hypot(ca.re, ca.im), Math.hypot(cb.re, cb.im))
+  return Math.hypot(ca.re - cb.re, ca.im - cb.im) <= 1e-9 * scale
+}
+
 function normalize(expr: string): string {
   return expr
     .replace(/[×·]/g, '*')
@@ -153,7 +171,9 @@ export function evaluateExpression(input: string, opts: EvalOptions = {}): CalcV
   try {
     node = math.parse(expr)
   } catch (e) {
-    throw new CalcError(`Sintaxis inválida: ${(e as Error).message}`)
+    const msg = (e as Error).message
+    if (/assignment/i.test(msg)) throw new CalcError('El «=» separa los dos lados de una ecuación, por ejemplo x^2 + 1 = 0.')
+    throw new CalcError(`Sintaxis inválida: ${msg}`)
   }
   validate(node, new Set(Object.keys(vars)))
   const prepared = applyAngleMode(node, opts.angle ?? 'rad')

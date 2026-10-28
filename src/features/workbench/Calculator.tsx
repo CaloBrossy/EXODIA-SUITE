@@ -2,7 +2,8 @@ import { useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Copy, Trash2 } from 'lucide-react'
 import { db } from '@/db/db'
-import { CalcError, CONSTANTS, evaluateExpression, formatValue, type AngleMode, type CalcValue, type NumberFormat } from '@/lib/math/calculator'
+import { CalcError, CONSTANTS, equationSides, evaluateExpression, formatValue, freeSymbols, sameValue, type AngleMode, type CalcValue, type NumberFormat } from '@/lib/math/calculator'
+import { solveSymbolic } from '@/lib/math/symbolicClient'
 import { clearCalculations, recordCalculation } from '@/services/knowledge'
 import { copyText } from '@/hooks/misc'
 import { useFeedback } from '@/components/feedback'
@@ -23,13 +24,13 @@ export default function Calculator() {
   const [angle, setAngle] = useState<AngleMode>(() => (localStorage.getItem('exodia.angle') as AngleMode | null) ?? 'rad')
   const [fmt, setFmt] = useState<NumberFormat>('auto')
   const [precision, setPrecision] = useState(12)
-  const [committed, setCommitted] = useState<{ input: string; value: CalcValue } | null>(null)
+  const [committed, setCommitted] = useState<{ input: string; value: CalcValue } | { input: string; text: string } | null>(null)
   const [error, setError] = useState('')
   const [histIdx, setHistIdx] = useState(-1)
   const inputRef = useRef<HTMLInputElement>(null)
   const history = useLiveQuery(() => db.calculations.where('kind').equals('calc').reverse().sortBy('createdAt'), [])
 
-  const ans = typeof committed?.value === 'number' ? committed.value : undefined
+  const ans = committed && 'value' in committed && typeof committed.value === 'number' ? committed.value : undefined
   const variables = useMemo(() => (ans !== undefined ? { ans } : undefined), [ans])
   const preview = useMemo(() => {
     if (!expr.trim()) return null
@@ -54,9 +55,29 @@ export default function Calculator() {
 
   const run = async () => {
     try {
-      const value = evaluateExpression(expr, { angle, variables })
-      const text = formatValue(value, fmt, precision)
-      setCommitted({ input: expr, value })
+      const sides = equationSides(expr)
+      if (sides === 'many') throw new CalcError('Dejá un solo «=» entre los dos lados.')
+      let text: string
+      if (sides) {
+        const symbols = [...new Set([...freeSymbols(sides.lhs), ...freeSymbols(sides.rhs)])].filter((s) => s !== 'ans')
+        if (symbols.length === 0) {
+          const left = evaluateExpression(sides.lhs, { angle, variables })
+          const right = evaluateExpression(sides.rhs, { angle, variables })
+          text = sameValue(left, right)
+            ? `se cumple · ${formatValue(left, fmt, precision)} = ${formatValue(right, fmt, precision)}`
+            : `no se cumple · ${formatValue(left, fmt, precision)} ≠ ${formatValue(right, fmt, precision)}`
+          setCommitted({ input: expr, text })
+        } else {
+          const solved = await solveSymbolic({ op: 'solve', expr })
+          if (!solved.ok) throw new CalcError(solved.error)
+          text = solved.result
+          setCommitted({ input: expr, text })
+        }
+      } else {
+        const value = evaluateExpression(expr, { angle, variables })
+        text = formatValue(value, fmt, precision)
+        setCommitted({ input: expr, value })
+      }
       setError('')
       setHistIdx(-1)
       await recordCalculation('calc', angle === 'deg' && /sin|cos|tan|sec|csc|cot/.test(expr) ? `${expr} [deg]` : expr, text)
@@ -81,7 +102,7 @@ export default function Calculator() {
     }
   }
 
-  const result = committed ? formatValue(committed.value, fmt, precision) : null
+  const result = !committed ? null : 'text' in committed ? committed.text : formatValue(committed.value, fmt, precision)
   const copy = async (t: string) => notify((await copyText(t)) ? 'Copiado al portapapeles.' : 'No se pudo copiar.', 'info')
 
   return (
@@ -144,7 +165,7 @@ export default function Calculator() {
         <details className="glass rounded-xl px-4 py-3 text-sm">
           <summary className="cursor-pointer font-medium">Funciones y constantes admitidas</summary>
           <div className="mt-2 grid gap-2 text-muted md:grid-cols-2">
-            <p>Operadores: <code>+ − * / ^ ! mod</code> y paréntesis. Multiplicación implícita: <code>2pi</code>.</p>
+            <p>Operadores: <code>+ − * / ^ ! mod</code> y paréntesis. Multiplicación implícita: <code>2pi</code>. Una ecuación se resuelve: <code>x^2 + 1 = 0</code>.</p>
             <p>Funciones: sqrt, cbrt, nthRoot(x,n), exp, ln, log(x[,b]), log10, log2, sin, cos, tan, sec, csc, cot, asin, acos, atan, atan2, sinh, cosh, tanh, abs, round, floor, ceil, sign, min, max, hypot, combinations, permutations, re, im, conj, arg.</p>
             <p>Constantes: {Object.entries(CONSTANTS).map(([k, v]) => `${k} (${v})`).join(', ')}. <code>ans</code> = último resultado real.</p>
             <p>Las expresiones se analizan y validan con mathjs: no se ejecuta código arbitrario.</p>
