@@ -1,23 +1,49 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ObservatoryCore } from '@/components/ObservatoryCore'
 import { Button, ErrorText, Input } from '@/components/ui'
 import { safeReturn } from '@/app/gate'
+import { authErrorMessage, readOAuthReturn } from '@/lib/authPolicy'
 import { useAuth } from '@/hooks/useAuth'
+import { StorageError } from '@/services/errors'
 import { useFeedback } from '@/components/feedback'
 
 export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
-  const { configured, session, restoring, signIn, signUp } = useAuth()
+  const { configured, session, restoring, signIn, signUp, signInWithProvider } = useAuth()
   const { fail, notify } = useFeedback()
   const [params] = useSearchParams()
   const navigate = useNavigate()
-  const back = safeReturn(params.get('returnTo'))
+  const [back] = useState(() => safeReturn(params.get('returnTo') ?? readOAuthReturn()))
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [info, setInfo] = useState('')
 
+  useEffect(() => {
+    const robots = document.querySelector('meta[name="robots"]')
+    const prev = robots?.getAttribute('content') ?? 'index,follow'
+    robots?.setAttribute('content', 'noindex,nofollow')
+    return () => { robots?.setAttribute('content', prev) }
+  }, [])
+
+  useEffect(() => {
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const desc = params.get('error_description') || hash.get('error_description')
+    if (desc) fail(new StorageError(authErrorMessage(desc, 'login')))
+  }, [params, fail])
+
   if (!restoring && session) return <Navigate to={back} replace />
+
+  const oauth = async (provider: 'google' | 'github') => {
+    setBusy(true)
+    setInfo('')
+    try {
+      await signInWithProvider(provider, back)
+    } catch (e) {
+      fail(e)
+      setBusy(false)
+    }
+  }
 
   const submit = async () => {
     setBusy(true)
@@ -56,9 +82,14 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         {!configured && <ErrorText>Supabase no está configurado en este entorno. La landing y el laboratorio local siguen disponibles.</ErrorText>}
         <form className="mt-5 flex flex-col gap-3" onSubmit={(e) => { e.preventDefault(); void submit() }}>
           <Input type="email" autoComplete="email" placeholder="email" value={email} onChange={(e) => setEmail(e.target.value)} required aria-label="Email" />
-          <Input type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder="contraseña (mín. 6)" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} required aria-label="Contraseña" />
+          <Input type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder={mode === 'login' ? 'contraseña' : 'contraseña (10+, letras y números)'} value={password} onChange={(e) => setPassword(e.target.value)} minLength={mode === 'login' ? 6 : 10} required aria-label="Contraseña" />
           <Button type="submit" variant="primary" disabled={busy || !configured}>{mode === 'login' ? 'Entrar' : 'Crear cuenta'}</Button>
         </form>
+        <div className="mt-4 flex items-center gap-3 text-xs text-muted"><span className="h-px flex-1 bg-line" />o<span className="h-px flex-1 bg-line" /></div>
+        <div className="mt-4 flex flex-col gap-2">
+          <Button className="w-full justify-center" disabled={busy || !configured} onClick={() => void oauth('google')}>Continuar con Google</Button>
+          <Button className="w-full justify-center" disabled={busy || !configured} onClick={() => void oauth('github')}>Continuar con GitHub</Button>
+        </div>
         {info && <p className="mt-3 text-sm text-muted">{info}</p>}
         <p className="mt-4 text-sm text-muted">
           {mode === 'login' ? <Link to={`/register?returnTo=${encodeURIComponent(back)}`} className="text-accent">Crear una cuenta</Link> : <Link to={`/login?returnTo=${encodeURIComponent(back)}`} className="text-accent">Ya tengo cuenta</Link>}

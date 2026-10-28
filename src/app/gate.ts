@@ -39,8 +39,16 @@ export function rootDestination(opts: { session: boolean; entered: boolean }): '
   return opts.session || opts.entered ? '/app' : 'landing'
 }
 
-/** Solo rutas internas. Bloquea protocolos y URLs de otro origen. */
+/** Solo rutas internas. Bloquea protocolos, otro origen y caracteres de control. */
 export function safeReturn(raw: string | null, fallback = '/app'): string {
-  if (!raw || !raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\') || raw.includes('://')) return fallback
-  return raw
+  if (!raw) return fallback
+  let path = raw
+  try {
+    path = decodeURIComponent(raw)
+  } catch {
+    return fallback
+  }
+  if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\') || path.includes('://')) return fallback
+  if (/[\u0000-\u001F\u007F]/.test(path)) return fallback
+  return path
 }

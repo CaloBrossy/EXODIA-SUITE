@@ -70,7 +70,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={onOpenOperations}
-              className="group relative inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 text-[10px] sm:text-xs font-mono font-medium tracking-wide text-[#05070d] bg-[#5ee7f7] rounded-lg hover:bg-[#7ef0fd] hover:shadow-[0_0_20px_rgba(94,231,247,0.35)] transition-all whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5ee7f7] focus-visible:ring-offset-2 focus-visible:ring-offset-[#05070d]"
+              className="group relative hidden sm:inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 text-[10px] sm:text-xs font-mono font-medium tracking-wide text-[#05070d] bg-[#5ee7f7] rounded-lg hover:bg-[#7ef0fd] hover:shadow-[0_0_20px_rgba(94,231,247,0.35)] transition-all whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5ee7f7] focus-visible:ring-offset-2 focus-visible:ring-offset-[#05070d]"
             >
               <span>Centro de operaciones</span>
               <ArrowUpRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />

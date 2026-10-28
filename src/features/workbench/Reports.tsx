@@ -207,7 +207,7 @@ function ReportEditor({ id }: { id: string }) {
       <Panel title="Mediciones" actions={<Button size="sm" variant="ghost" onClick={() => setMeasure([...draft.measurements, { name: '', value: 0, uncertainty: 0, unit: '' }])}>Fila</Button>}>
         <div className="flex flex-col gap-2">
           {draft.measurements.map((m, i) => (
-            <div key={i} className="grid grid-cols-[1fr_6rem_6rem_5rem_auto] gap-1">
+            <div key={i} className="grid min-w-0 grid-cols-2 gap-1 sm:grid-cols-[1fr_6rem_6rem_5rem_auto]">
               <Input aria-label={`Magnitud ${i + 1}`} placeholder="L" value={m.name} onChange={(e) => setMeasure(draft.measurements.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
               <Input aria-label={`Valor ${i + 1}`} value={String(m.value)} onChange={(e) => setMeasure(draft.measurements.map((x, j) => (j === i ? { ...x, value: Number(e.target.value.replace(',', '.')) } : x)))} />
               <Input aria-label={`Incertidumbre ${i + 1}`} value={String(m.uncertainty)} onChange={(e) => setMeasure(draft.measurements.map((x, j) => (j === i ? { ...x, uncertainty: Number(e.target.value.replace(',', '.')) } : x)))} />
@@ -225,7 +225,7 @@ function ReportEditor({ id }: { id: string }) {
         </div>
         <div className="mt-2 flex flex-col gap-2">
           {prop.variables.map((v, i) => (
-            <div key={i} className="grid grid-cols-[6rem_6rem_6rem_auto] gap-1">
+            <div key={i} className="grid min-w-0 grid-cols-2 gap-1 sm:grid-cols-[6rem_6rem_6rem_auto]">
               <Input aria-label={`Símbolo ${i + 1}`} value={v.symbol} onChange={(e) => setProp({ ...prop, variables: prop.variables.map((x, j) => (j === i ? { ...x, symbol: e.target.value } : x)) })} />
               <Input aria-label={`Valor de ${v.symbol || i + 1}`} value={String(v.value)} onChange={(e) => setProp({ ...prop, variables: prop.variables.map((x, j) => (j === i ? { ...x, value: Number(e.target.value.replace(',', '.')) } : x)) })} />
               <Input aria-label={`Incertidumbre de ${v.symbol || i + 1}`} value={String(v.uncertainty)} onChange={(e) => setProp({ ...prop, variables: prop.variables.map((x, j) => (j === i ? { ...x, uncertainty: Number(e.target.value.replace(',', '.')) } : x)) })} />

@@ -30,6 +30,21 @@ export default function LandingPage() {
   )
 
   useEffect(() => {
+    const previous = document.title
+    document.title = 'EXODIA — laboratorio personal de matemáticas, física y estudio'
+    let link = document.querySelector<HTMLLinkElement>('link[rel="canonical"]')
+    if (!link) {
+      link = document.createElement('link')
+      link.rel = 'canonical'
+      document.head.appendChild(link)
+    }
+    link.href = `${location.origin}/`
+    return () => {
+      document.title = previous
+    }
+  }, [])
+
+  useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
     const sync = () => setReducedMotion(mq.matches || document.documentElement.classList.contains('fx-lite'))
     mq.addEventListener('change', sync)

@@ -1,6 +1,7 @@
 import { createContext, createElement, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { authErrorMessage, authLockRemaining, clearAuthFailures, normalizeEmail, noteAuthFailure, rememberOAuthReturn, signupPasswordIssue } from '@/lib/authPolicy'
 import { StorageError } from '@/services/errors'
 import { reconcileSession } from '@/services/sync'
 
@@ -10,6 +11,7 @@ interface AuthApi {
   session: Session | null
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string) => Promise<{ needsConfirm: boolean }>
+  signInWithProvider: (provider: 'google' | 'github', returnTo: string) => Promise<void>
   signOut: () => Promise<void>
 }
 
@@ -40,17 +42,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       restoring,
       session,
       async signIn(email, password) {
-        const { error } = await ready().auth.signInWithPassword({ email: email.trim(), password })
-        if (error) throw new StorageError(error.message, error)
+        const wait = authLockRemaining()
+        if (wait > 0) throw new StorageError(`Demasiados intentos. Esperá ${Math.ceil(wait / 1000)} s.`)
+        const { error } = await ready().auth.signInWithPassword({ email: normalizeEmail(email), password })
+        if (error) {
+          noteAuthFailure()
+          throw new StorageError(authErrorMessage(error.message, 'login'), error)
+        }
+        clearAuthFailures()
       },
       async signUp(email, password) {
+        const wait = authLockRemaining()
+        if (wait > 0) throw new StorageError(`Demasiados intentos. Esperá ${Math.ceil(wait / 1000)} s.`)
+        const weak = signupPasswordIssue(password)
+        if (weak) throw new StorageError(weak)
         const { data, error } = await ready().auth.signUp({
-          email: email.trim(),
+          email: normalizeEmail(email),
           password,
           options: { emailRedirectTo: `${location.origin}/login` },
         })
-        if (error) throw new StorageError(error.message, error)
+        if (error) {
+          noteAuthFailure()
+          throw new StorageError(authErrorMessage(error.message, 'register'), error)
+        }
+        clearAuthFailures()
         return { needsConfirm: !data.session }
+      },
+      async signInWithProvider(provider, returnTo) {
+        const wait = authLockRemaining()
+        if (wait > 0) throw new StorageError(`Demasiados intentos. Esperá ${Math.ceil(wait / 1000)} s.`)
+        rememberOAuthReturn(returnTo)
+        const { error } = await ready().auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: `${location.origin}/login`,
+            ...(provider === 'google' ? { queryParams: { prompt: 'select_account' } } : {}),
+          },
+        })
+        if (error) {
+          noteAuthFailure()
+          throw new StorageError(authErrorMessage(error.message, 'login'), error)
+        }
       },
       async signOut() {
         const { error } = await ready().auth.signOut()
