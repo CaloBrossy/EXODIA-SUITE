@@ -13,6 +13,7 @@ class Returned {
 
 const STEP_LIMIT = 20_000_000
 const DEPTH_LIMIT = 2_000
+const ALLOC_MAX = 400_001
 
 export type RunResult = { ok: true; value: Value; steps: number } | { ok: false; error: string; runtime: boolean; steps: number }
 
@@ -42,18 +43,37 @@ export function runProgram(p: Program, args: Value[]): RunResult {
         return e.name === 'pi' ? Math.PI : Math.E
       case 'toFloat':
         return ev(e.e, env)
-      case 'len':
-        return (env.get(e.list) as number[]).length
+      case 'len': {
+        const v = env.get(e.list)
+        return typeof v === 'string' ? [...v].length : (v as number[]).length
+      }
       case 'at': {
-        const xs = env.get(e.list) as number[]
+        const xs = env.get(e.list)
         const i = ev(e.index, env) as number
-        if (i < 0 || i >= xs.length) throw new RuntimeFault(`Índice fuera de rango: ${i}`)
-        return xs[i]!
+        if (typeof xs === 'string') {
+          const chars = [...xs]
+          if (i < 0 || i >= chars.length) throw new RuntimeFault(`Índice fuera de rango: ${i}`)
+          return chars[i]!
+        }
+        const list = xs as number[]
+        if (i < 0 || i >= list.length) throw new RuntimeFault(`Índice fuera de rango: ${i}`)
+        return list[i]!
+      }
+      case 'concat':
+        return `${ev(e.l, env) as string}${ev(e.r, env) as string}`
+      case 'slice': {
+        const chars = [...(env.get(e.str) as string)]
+        const from = ev(e.from, env) as number
+        const to = ev(e.to, env) as number
+        if (from < 0 || to < from || to > chars.length) throw new RuntimeFault(`Recorte fuera de rango: ${from}..${to}`)
+        return chars.slice(from, to).join('')
       }
       case 'pow':
         return Math.pow(ev(e.base, env) as number, ev(e.exp, env) as number)
       case 'math': {
         const x = ev(e.arg, env) as number
+        if (e.fn === 'ceil') return Math.ceil(x)
+        if (e.fn === 'round') return x >= 0 ? Math.floor(x + 0.5) : Math.ceil(x - 0.5)
         const m = { sqrt: Math.sqrt, abs: Math.abs, floor: Math.floor, sin: Math.sin, cos: Math.cos, tan: Math.tan, exp: Math.exp, ln: Math.log, log10: Math.log10 }
         return m[e.fn](x)
       }
@@ -62,6 +82,11 @@ export function runProgram(p: Program, args: Value[]): RunResult {
       case 'bin': {
         if (e.op === 'and') return (ev(e.l, env) as boolean) && (ev(e.r, env) as boolean)
         if (e.op === 'or') return (ev(e.l, env) as boolean) || (ev(e.r, env) as boolean)
+        if (e.op === '==' || e.op === '!=') {
+          const a = ev(e.l, env)
+          const b = ev(e.r, env)
+          return e.op === '==' ? a === b : a !== b
+        }
         const l = ev(e.l, env) as number
         const r = ev(e.r, env) as number
         switch (e.op) {
@@ -79,10 +104,6 @@ export function runProgram(p: Program, args: Value[]): RunResult {
           case '%':
             if (r === 0) throw new RuntimeFault('Módulo por cero')
             return l % r
-          case '==':
-            return l === r
-          case '!=':
-            return l !== r
           case '<':
             return l < r
           case '<=':
@@ -106,6 +127,27 @@ export function runProgram(p: Program, args: Value[]): RunResult {
             env.set(s.name, ev(s.value, env))
             declared.push(s.name)
             break
+          case 'copy': {
+            const src = env.get(s.from) as number[]
+            env.set(s.name, src.slice())
+            declared.push(s.name)
+            break
+          }
+          case 'alloc': {
+            const n = ev(s.len, env) as number
+            if (!Number.isSafeInteger(n) || n < 0 || n > ALLOC_MAX) throw new RuntimeFault(`Longitud de reserva inválida: ${n}`)
+            const fill = ev(s.fill, env) as number
+            env.set(s.name, Array.from({ length: n }, () => fill))
+            declared.push(s.name)
+            break
+          }
+          case 'setAt': {
+            const xs = env.get(s.list) as number[]
+            const i = ev(s.index, env) as number
+            if (i < 0 || i >= xs.length) throw new RuntimeFault(`Índice fuera de rango: ${i}`)
+            xs[i] = ev(s.value, env) as number
+            break
+          }
           case 'set':
             env.set(s.name, ev(s.value, env))
             break
@@ -123,13 +165,16 @@ export function runProgram(p: Program, args: Value[]): RunResult {
             env.delete(s.name)
             break
           }
-          case 'each':
-            for (const x of env.get(s.list) as number[]) {
+          case 'each': {
+            const src = env.get(s.list)
+            const items = typeof src === 'string' ? [...src] : (src as number[])
+            for (const x of items) {
               env.set(s.name, x)
               exec(s.body, env)
             }
             env.delete(s.name)
             break
+          }
           case 'while':
             while (ev(s.cond, env)) exec(s.body, env)
             break

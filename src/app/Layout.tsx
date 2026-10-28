@@ -12,6 +12,7 @@ import { cx, Kbd, Loading } from '@/components/ui'
 import { CommandPalette, OPEN_SEARCH_EVENT } from './CommandPalette'
 import { PomodoroWatcher } from './PomodoroWatcher'
 import { PwaStatus } from './PwaStatus'
+import { AccountInvite } from './AccountInvite'
 import { NAV } from './nav'
 
 function Brand() {
@@ -73,6 +74,7 @@ export function Layout() {
   useHotkeys([
     { combo: 'mod+k', handler: openPalette, allowInInputs: true },
     { combo: 'alt+n', handler: () => void newNote(), allowInInputs: true },
+    { combo: 'alt+e', handler: () => navigate('/exercises/errores?nuevo=1') },
     ...NAV.map((n, i) => ({ combo: `alt+${i + 1}`, handler: () => navigate(n.to), allowInInputs: true })),
   ])
 
@@ -101,7 +103,7 @@ export function Layout() {
             <NavLink
               key={n.to}
               to={n.to}
-              end={n.to === '/'}
+              end={n.to === '/app'}
               title={`${n.hint} (Alt+${i + 1})`}
               className={({ isActive }) =>
                 cx(
@@ -156,6 +158,7 @@ export function Layout() {
           </Suspense>
         </main>
       </div>
+      <AccountInvite />
       <CommandPalette open={palette.open} initialQuery={palette.query} onClose={() => setPalette({ open: false, query: '' })} />
     </div>
   )

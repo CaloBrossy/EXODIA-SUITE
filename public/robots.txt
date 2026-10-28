@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /app
+Disallow: /notes
+Disallow: /knowledge
+Disallow: /workbench
+Disallow: /focus
+Disallow: /sketch
+Disallow: /tools
+Disallow: /settings
+Disallow: /calendar
+Disallow: /review
+Disallow: /exercises
+Disallow: /library

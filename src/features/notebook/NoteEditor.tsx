@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Bold, Code, Columns2, Eye, Heading, Italic, List, ListChecks, PencilLine, Quote, Sigma, SquareFunction, Star, Trash2 } from 'lucide-react'
+import { ArrowLeft, Bold, Code, Columns2, Eye, FileText, Heading, Italic, List, ListChecks, PencilLine, Quote, Sigma, SquareFunction, Star, Trash2 } from 'lucide-react'
 import { db } from '@/db/db'
 import type { Note } from '@/db/models'
 import { deleteNote, getNote, toggleLink, updateNote } from '@/services/notes'
@@ -196,6 +196,7 @@ function EditorBody({ note, recovered }: { note: Note; recovered: boolean }) {
           <button title={meta.favorite ? 'Quitar de favoritas' : 'Marcar como favorita'} aria-label="Favorita" onClick={() => void updateMeta({ favorite: !meta.favorite })} className="rounded p-1.5 hover:bg-sunken">
             <Star size={15} className={meta.favorite ? 'fill-accent text-accent' : 'text-muted'} />
           </button>
+          <Link to={`/workbench/reports/new?note=${note.id}`} title="Crear informe" aria-label="Crear informe" className="rounded p-1.5 text-muted hover:bg-sunken hover:text-fg"><FileText size={15} /></Link>
           <button title="Eliminar nota" aria-label="Eliminar nota" onClick={remove} className="rounded p-1.5 text-muted hover:bg-sunken hover:text-danger">
             <Trash2 size={15} />
           </button>

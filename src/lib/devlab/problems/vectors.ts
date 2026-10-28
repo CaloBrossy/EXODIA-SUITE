@@ -1,4 +1,4 @@
-import { add, at, each, fail, flt, for_, if_, int, len, let_, math, mul, ne, ref, ret, set, sub } from '../ir'
+import { add, at, copy, each, fail, flt, for_, if_, int, len, let_, math, mul, ne, ref, ret, set, setAt, sub } from '../ir'
 import { emptyAnalysis, type KindDef, type Solution } from '../types'
 import { fmt, needsClarification, norm, numbers, texNum, unsupported } from './shared'
 import { RefError, tc, uniqueTests } from './testing'
@@ -6,9 +6,8 @@ import { RefError, tc, uniqueTests } from './testing'
 const KIND = 'vectors' as const
 const DIM = 'Los vectores deben tener la misma dimensión'
 
-type Op = 'escalar' | 'norma'
-
-const opOf = (t: string): Op | null => (/producto (escalar|punto|interno)|\bdot\b/.test(t) ? 'escalar' : /\bnorma\b|modulo del vector|longitud del vector|magnitud/.test(t) ? 'norma' : null)
+type Op = 'escalar' | 'norma' | 'cruz'
+const opOf = (t: string): Op | null => (/producto (escalar|punto|interno)|\bdot\b/.test(t) ? 'escalar' : /producto vectorial|producto cruz|\bcross\b/.test(t) ? 'cruz' : /\bnorma\b|modulo del vector|longitud del vector|magnitud/.test(t) ? 'norma' : null)
 
 /** Grupos entre paréntesis o corchetes: dentro de ellos la coma separa componentes. */
 const groups = (text: string) => [...text.matchAll(/[([]([^)\]]*)[)\]]/g)].map((m) => numbers(m[1]!.replace(/,/g, ' ')))
@@ -22,13 +21,95 @@ const normRef = (v: number[]) => Math.hypot(...v)
 function build(text: string): Solution {
   const t = norm(text)
   const op = opOf(t)
-  if (!op)
+  const g = groups(text).filter((x) => x.length)
+  const assumptions: string[] = []
+    if (!op)
     return needsClarification(KIND, 'Vectores', { summary: 'Operación con vectores.', ambiguities: ['¿Qué operación hay que hacer?'] }, [
       { label: 'Producto escalar', text: 'Producto escalar de (1, 2, 3) y (4, -5, 6)' },
       { label: 'Norma', text: 'Norma del vector (3, 4)' },
     ])
-  const g = groups(text).filter((x) => x.length)
-  const assumptions: string[] = []
+  if (op === 'cruz') {
+    let [u, v] = g
+    if (!u || !v) {
+      u = [1, 2, 3]
+      v = [4, -5, 6]
+      assumptions.push('No se dieron dos vectores: se usan (1, 2, 3) y (4, -5, 6).')
+    }
+    if (u.length !== 3 || v.length !== 3) return unsupported(KIND, 'Producto vectorial', 'El producto vectorial está definido en 3D: cada vector debe tener 3 componentes.')
+    const cross = (a: number[], b: number[]) => [a[1]! * b[2]! - a[2]! * b[1]!, a[2]! * b[0]! - a[0]! * b[2]!, a[0]! * b[1]! - a[1]! * b[0]!]
+    const r = cross(u, v)
+    return {
+      kind: KIND,
+      title: 'Producto vectorial',
+      status: 'ok',
+      analysis: emptyAnalysis({
+        summary: 'Producto vectorial de dos vectores de R³.',
+        goal: 'Un vector de 3 componentes, perpendicular a ambos.',
+        known: [`u = (${u.map(fmt).join(', ')})`, `v = (${v.map(fmt).join(', ')})`],
+        unknown: ['u × v'],
+        constraints: ['Solo dimensión 3.'],
+        conditions: ['i = uy vz − uz vy, etc.'],
+        edgeCases: ['Paralelos: resultado nulo.', 'Alguno nulo: resultado nulo.', 'Componentes negativas.'],
+        assumptions,
+      }),
+      math: {
+        steps: [{ text: 'Definición.', tex: 'u \\times v = (u_y v_z - u_z v_y,\\ u_z v_x - u_x v_z,\\ u_x v_y - u_y v_x)' }, { text: 'Resultado.', tex: `(${r.map(texNum).join(', ')})` }],
+        validity: ['Solo en 3D.'],
+        result: { text: 'u × v.', tex: `(${r.map(texNum).join(',\\ ')})` },
+        symbolicVsProgram: 'La fórmula es directa; el programa escribe las tres componentes en una lista nueva.',
+      },
+      strategies: [{ id: 'componentes', label: 'Por componentes', summary: 'Calcular las tres coordenadas con la regla del determinante 2×2.' }],
+      strategy: 'componentes',
+      design: {
+        inputs: ['u: 3 reales', 'v: 3 reales'],
+        outputs: ['w: lista de 3 reales'],
+        variables: ['w: copia de u que se sobrescribe'],
+        steps: ['Validar dimensión 3.', 'Copiar u a w (buffer nuevo).', 'w1 = uy vz − uz vy.', 'w2 = uz vx − ux vz.', 'w3 = ux vy − uy vx.', 'Devolver w.'],
+        conditions: ['n ≠ 3 → error.'],
+        loops: ['Ninguno esencial.'],
+        special: ['Se copia u solo para tener un buffer de 3 celdas; no se muta la entrada.'],
+        complexity: { time: 'O(1)', space: 'O(1)', why: 'Tres restas y seis productos.' },
+      },
+      program: {
+        entry: 'cruz',
+        fns: [
+          {
+            name: 'cruz',
+            params: [
+              { name: 'u', type: 'float[]', doc: 'primer vector (3 componentes).' },
+              { name: 'v', type: 'float[]', doc: 'segundo vector (3 componentes).' },
+            ],
+            returns: 'float[]',
+            fallible: true,
+            doc: 'Producto vectorial en R³.',
+            returnsDoc: 'u × v.',
+            failsDoc: 'Si algún vector no tiene 3 componentes.',
+            body: [
+              if_(ne(len('u'), int(3)), [fail('El producto vectorial exige dimensión 3')], undefined, { step: 1 }),
+              if_(ne(len('v'), int(3)), [fail('El producto vectorial exige dimensión 3')], undefined, { step: 1 }),
+              copy('w', 'float[]', 'u', { step: 2 }),
+              setAt('w', int(0), sub(mul(at('u', int(1)), at('v', int(2))), mul(at('u', int(2)), at('v', int(1)))), { step: 3 }),
+              setAt('w', int(1), sub(mul(at('u', int(2)), at('v', int(0))), mul(at('u', int(0)), at('v', int(2)))), { step: 4 }),
+              setAt('w', int(2), sub(mul(at('u', int(0)), at('v', int(1))), mul(at('u', int(1)), at('v', int(0)))), { step: 5 }),
+              ret(ref('w'), { step: 6 }),
+            ],
+          },
+        ],
+      },
+      tests: uniqueTests([
+        tc([u, v], () => cross(u, v), 'normal', 'Los vectores del enunciado.'),
+        tc([[1, 0, 0], [0, 1, 0]], () => [0, 0, 1], 'normal', 'i × j = k.'),
+        tc([[1, 2, 3], [2, 4, 6]], () => [0, 0, 0], 'límite', 'Paralelos: nulo.'),
+        tc([[0, 0, 0], [1, 2, 3]], () => [0, 0, 0], 'límite', 'Nulo.'),
+        tc([[1, -2, 3], [-4, 5, -6]], () => cross([1, -2, 3], [-4, 5, -6]), 'normal', 'Negativos.'),
+        tc([[1, 2], [3, 4, 5]], () => {
+          throw new RefError('El producto vectorial exige dimensión 3')
+        }, 'inválido', 'Dimensión distinta de 3.'),
+      ]),
+      sqlNote: 'SQL no aplica de forma natural al producto vectorial.',
+      questions: [{ stage: 'math', question: '¿u × v = − v × u?', answer: 'Sí: es antisimétrico.' }],
+    }
+  }
   if (op === 'escalar') {
     let [u, v] = g
     if (!u || !v) {
@@ -191,10 +272,11 @@ function build(text: string): Solution {
 export const vectorsKind: KindDef = {
   id: KIND,
   label: 'Vectores',
-  description: 'Producto escalar y norma euclídea.',
+  description: 'Producto escalar, norma euclídea y producto vectorial 3D.',
   examples: [
     { title: 'Producto escalar', text: 'Producto escalar de (1, 2, 3) y (4, -5, 6)' },
     { title: 'Norma', text: 'Norma del vector (2, -3, 6)' },
+    { title: 'Producto vectorial', text: 'Producto vectorial de (1, 2, 3) y (4, -5, 6)' },
   ],
   detect: (text) => (opOf(norm(text)) ? 0.9 : /vector/.test(norm(text)) ? 0.6 : 0),
   build,

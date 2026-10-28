@@ -33,6 +33,8 @@ abstract class Emitter {
   protected uses = new Set<string>()
   protected fn!: Fn
   protected mutable = new Set<string>()
+  protected lists = new Map<string, ListType>()
+  protected strs = new Set<string>()
   abstract readonly indentUnit: string
   protected semi = ';'
   protected allmanCtrl = false
@@ -111,9 +113,15 @@ abstract class Emitter {
       case 'at':
         return this.atExpr(e.list, e.index)
       case 'call':
-        return atom(`${this.fnName(e.fn)}(${e.args.map((a) => this.expr(a).s).join(', ')})`)
+        return this.callExpr(e.fn, e.args)
+      case 'concat':
+        return this.concatExpr(e.l, e.r)
+      case 'slice':
+        return this.sliceExpr(e.str, e.from, e.to)
       case 'bin': {
         if (e.op === '//') return this.idivExpr(e.l, e.r)
+        const ch = this.charCmp(e)
+        if (ch) return ch
         const p = PREC[e.op]
         const cmp = isCmp(e.op)
         return { s: `${this.paren(this.expr(e.l), p, false, cmp)} ${this.op(e.op)} ${this.paren(this.expr(e.r), p, true, cmp)}`, p }
@@ -131,6 +139,49 @@ abstract class Emitter {
   protected abstract lenExpr(list: string): Code
   protected atExpr(list: string, index: Expr): Code {
     return atom(`${this.varName(list)}[${this.expr(index).s}]`)
+  }
+  protected concatExpr(l: Expr, r: Expr): Code {
+    return { s: `${this.wrap(l, 5)} + ${this.paren(this.expr(r), 5, true)}`, p: 5 }
+  }
+  protected callExpr(name: string, args: Expr[]): Code {
+    return atom(`${this.fnName(name)}(${args.map((a) => this.expr(a).s).join(', ')})`)
+  }
+  protected typeOfName(name: string): Type | undefined {
+    return this.fn.params.find((x) => x.name === name)?.type ?? (this.lists.get(name) as Type | undefined) ?? (this.strs.has(name) ? 'str' : undefined)
+  }
+  protected isStrName(name: string) {
+    return this.typeOfName(name) === 'str'
+  }
+  protected charLit(s: string) {
+    return `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
+  }
+  /** Comparación carácter/cadena de un punto: C/Go/Java no tratan `"a"` como `char`. */
+  protected charCmp(e: Extract<Expr, { k: 'bin' }>): Code | null {
+    if (e.op !== '==' && e.op !== '!=') return null
+    const at = e.l.k === 'at' ? e.l : e.r.k === 'at' ? e.r : null
+    const lit = e.l.k === 'str' ? e.l : e.r.k === 'str' ? e.r : null
+    if (!at || !lit || !this.isStrName(at.list) || [...lit.v].length !== 1 || lit.v.charCodeAt(0) > 127) return null
+    return { s: `${this.expr(at).s} ${this.op(e.op)} ${this.charLit(lit.v)}`, p: PREC[e.op] }
+  }
+  protected showValue(x: string, _t: Type) {
+    return x
+  }
+  protected sliceExpr(str: string, from: Expr, to: Expr): Code {
+    return atom(`${this.varName(str)}.slice(${this.expr(from).s}, ${this.expr(to).s})`)
+  }
+  /** Medio lejos de cero: 1.5 → 2, −1.5 → −2. Evita el redondeo bancario de Python/C#. */
+  protected roundHalfAway(arg: Expr, floor: (x: string) => string, ceil: (x: string) => string): Code {
+    const x = this.expr(arg).s
+    return atom(`((${x}) >= 0 ? ${floor(`(${x}) + 0.5`)} : ${ceil(`(${x}) - 0.5`)})`)
+  }
+  protected copyStmt(name: string, from: string): string[] {
+    return [`${this.varName(name)} = ${this.varName(from)}.slice()`]
+  }
+  protected allocStmt(name: string, _type: ListType, len: Expr, fill: Expr): string[] {
+    return [`${this.varName(name)} = Array(${this.expr(len).s}).fill(${this.expr(fill).s})`]
+  }
+  protected setAtStmt(list: string, index: Expr, value: Expr): string {
+    return `${this.varName(list)}[${this.expr(index).s}] = ${this.expr(value).s}`
   }
 
   // ---- bloques ----
@@ -178,7 +229,20 @@ abstract class Emitter {
     if (s.note) this.comment(s.note)
     switch (s.k) {
       case 'let':
-        this.line(this.declare(s.name, s.type, this.expr(s.value).s))
+        if (s.type === 'str') this.strs.add(s.name)
+        if (isList(s.type)) this.lists.set(s.name, s.type)
+        this.line(this.declare(s.name, s.type as Scalar, this.expr(s.value).s))
+        break
+      case 'copy':
+        this.lists.set(s.name, s.type)
+        this.copyStmt(s.name, s.from).forEach((l) => this.line(l.endsWith(this.semi) || !this.semi ? l : `${l}${this.semi}`))
+        break
+      case 'alloc':
+        this.lists.set(s.name, s.type)
+        this.allocStmt(s.name, s.type, s.len, s.fill).forEach((l) => this.line(l.endsWith(this.semi) || !this.semi ? l : `${l}${this.semi}`))
+        break
+      case 'setAt':
+        this.line(`${this.setAtStmt(s.list, s.index, s.value)}${this.semi}`)
         break
       case 'set':
         this.line(`${this.varName(s.name)} = ${this.expr(s.value).s}${this.semi}`)
@@ -228,7 +292,7 @@ abstract class Emitter {
   }
 
   protected listType(name: string): ListType {
-    const t = this.fn.params.find((x) => x.name === name)?.type
+    const t = this.lists.get(name) ?? this.fn.params.find((x) => x.name === name)?.type
     if (!t || !isList(t)) throw new Error(`${name} no es una lista`)
     return t
   }
@@ -245,6 +309,12 @@ abstract class Emitter {
   protected emitFn(f: Fn) {
     this.fn = f
     this.mutable = assignedVars(f.body)
+    this.lists = new Map()
+    this.strs = new Set()
+    for (const p of f.params) {
+      if (isList(p.type)) this.lists.set(p.name, p.type)
+      if (p.type === 'str') this.strs.add(p.name)
+    }
     this.fnDecl(f)
   }
 
@@ -329,8 +399,21 @@ class PythonEmitter extends Emitter {
   protected mathExpr(fn: MathFn, arg: Expr): Code {
     if (fn === 'abs') return atom(`abs(${this.expr(arg).s})`)
     this.uses.add('math')
-    const name = { sqrt: 'sqrt', floor: 'floor', sin: 'sin', cos: 'cos', tan: 'tan', exp: 'exp', ln: 'log', log10: 'log10' }[fn]
+    if (fn === 'round') {
+      const x = this.expr(arg).s
+      return atom(`(math.floor((${x}) + 0.5) if (${x}) >= 0 else math.ceil((${x}) - 0.5))`)
+    }
+    const name = { sqrt: 'sqrt', floor: 'floor', ceil: 'ceil', sin: 'sin', cos: 'cos', tan: 'tan', exp: 'exp', ln: 'log', log10: 'log10' }[fn]
     return atom(`math.${name}(${this.expr(arg).s})`)
+  }
+  protected copyStmt(name: string, from: string): string[] {
+    return [`${this.varName(name)} = list(${this.varName(from)})`]
+  }
+  protected allocStmt(name: string, _type: ListType, len: Expr, fill: Expr): string[] {
+    return [`${this.varName(name)} = [${this.expr(fill).s}] * ${this.paren(this.expr(len), 6, true)}`]
+  }
+  protected sliceExpr(str: string, from: Expr, to: Expr): Code {
+    return atom(`${this.varName(str)}[${this.expr(from).s}:${this.expr(to).s}]`)
   }
   protected constant(name: 'pi' | 'e') {
     this.uses.add('math')
@@ -453,8 +536,15 @@ class JsEmitter extends Emitter {
     return { s: `${this.wrap(b, ATOM)} ** ${this.wrap(x, ATOM)}`, p: 8 }
   }
   protected mathExpr(fn: MathFn, arg: Expr) {
-    const name = { sqrt: 'sqrt', abs: 'abs', floor: 'floor', sin: 'sin', cos: 'cos', tan: 'tan', exp: 'exp', ln: 'log', log10: 'log10' }[fn]
+    if (fn === 'round') return this.roundHalfAway(arg, (x) => `Math.floor(${x})`, (x) => `Math.ceil(${x})`)
+    const name = { sqrt: 'sqrt', abs: 'abs', floor: 'floor', ceil: 'ceil', sin: 'sin', cos: 'cos', tan: 'tan', exp: 'exp', ln: 'log', log10: 'log10' }[fn]
     return atom(`Math.${name}(${this.expr(arg).s})`)
+  }
+  protected copyStmt(name: string, from: string): string[] {
+    return [`let ${name} = ${from}.slice()`]
+  }
+  protected allocStmt(name: string, _type: ListType, len: Expr, fill: Expr): string[] {
+    return [`let ${name} = Array(${this.expr(len).s}).fill(${this.expr(fill).s})`]
   }
   protected constant(name: 'pi' | 'e') {
     return name === 'pi' ? 'Math.PI' : 'Math.E'
@@ -509,12 +599,12 @@ class JsEmitter extends Emitter {
       const label = this.strLit(`${this.label(t)} =>`)
       if (fn.fallible) {
         this.open('try')
-        this.line(`console.log(${label}, ${call});`)
+        this.line(`console.log(${label}, ${this.showValue(call, fn.returns)});`)
         this.mid('catch (error)')
         const msg = this.ts ? 'error instanceof Error ? error.message : error' : 'error.message'
         this.line(`console.log(${this.strLit(`${this.label(t)} => error:`)}, ${msg});`)
         this.close()
-      } else this.line(`console.log(${label}, ${call});`)
+      } else this.line(`console.log(${label}, ${this.showValue(call, fn.returns)});`)
     }
     this.close()
     this.line()
@@ -539,8 +629,20 @@ class JavaEmitter extends Emitter {
     return atom(`Math.pow(${this.expr(b).s}, ${this.expr(x).s})`)
   }
   protected mathExpr(fn: MathFn, arg: Expr) {
-    const name = { sqrt: 'sqrt', abs: 'abs', floor: 'floor', sin: 'sin', cos: 'cos', tan: 'tan', exp: 'exp', ln: 'log', log10: 'log10' }[fn]
+    if (fn === 'round') return this.roundHalfAway(arg, (x) => `Math.floor(${x})`, (x) => `Math.ceil(${x})`)
+    const name = { sqrt: 'sqrt', abs: 'abs', floor: 'floor', ceil: 'ceil', sin: 'sin', cos: 'cos', tan: 'tan', exp: 'exp', ln: 'log', log10: 'log10' }[fn]
     return atom(`Math.${name}(${this.expr(arg).s})`)
+  }
+  protected copyStmt(name: string, from: string): string[] {
+    const t = this.lists.get(from) ?? this.fn.params.find((x) => x.name === from)?.type
+    return [`${this.ty(t as Type)} ${name} = java.util.Arrays.copyOf(${from}, ${from}.length)`]
+  }
+  protected allocStmt(name: string, type: ListType, len: Expr, fill: Expr): string[] {
+    const n = len.k === 'int' ? this.intLit(len.v) : `(int) (${this.expr(len).s})`
+    return [`${this.ty(type)} ${name} = new ${this.ty(elemOf(type))}[${n}]`, `java.util.Arrays.fill(${name}, ${this.expr(fill).s})`]
+  }
+  protected sliceExpr(str: string, from: Expr, to: Expr): Code {
+    return atom(`${str}.substring((int) ${this.wrap(from, 8)}, (int) ${this.wrap(to, 8)})`)
   }
   protected constant(name: 'pi' | 'e') {
     return name === 'pi' ? 'Math.PI' : 'Math.E'
@@ -549,10 +651,18 @@ class JavaEmitter extends Emitter {
     return { s: `(double) ${this.wrap(e, 8)}`, p: 7 }
   }
   protected lenExpr(list: string) {
-    return atom(`${list}.length`)
+    return atom(this.isStrName(list) ? `${list}.length()` : `${list}.length`)
   }
   protected atExpr(list: string, index: Expr) {
-    return atom(index.k === 'int' ? `${list}[${index.v}]` : `${list}[(int) ${this.wrap(index, 8)}]`)
+    const i = index.k === 'int' ? String(index.v) : `(int) ${this.wrap(index, 8)}`
+    return atom(this.isStrName(list) ? `${list}.charAt(${i})` : `${list}[${i}]`)
+  }
+  protected setAtStmt(list: string, index: Expr, value: Expr): string {
+    const i = index.k === 'int' ? String(index.v) : `(int) (${this.expr(index).s})`
+    return `${this.varName(list)}[${i}] = ${this.expr(value).s}`
+  }
+  protected showValue(x: string, t: Type) {
+    return isList(t) ? `java.util.Arrays.toString(${x})` : x
   }
   ty(t: Type) {
     return { int: 'long', float: 'double', bool: 'boolean', str: 'String', 'int[]': 'long[]', 'float[]': 'double[]' }[t]
@@ -600,11 +710,11 @@ class JavaEmitter extends Emitter {
       const label = this.strLit(`${this.label(t)} => `)
       if (fn.fallible) {
         this.open('try')
-        this.line(`System.out.println(${label} + ${call});`)
+        this.line(`System.out.println(${label} + ${this.showValue(call, fn.returns)});`)
         this.mid('catch (IllegalArgumentException e)')
         this.line(`System.out.println(${this.strLit(`${this.label(t)} => error: `)} + e.getMessage());`)
         this.close()
-      } else this.line(`System.out.println(${label} + ${call});`)
+      } else this.line(`System.out.println(${label} + ${this.showValue(call, fn.returns)});`)
     }
     this.close()
   }
@@ -636,7 +746,7 @@ class CEmitter extends Emitter {
   }
   protected mathExpr(fn: MathFn, arg: Expr) {
     this.uses.add('math')
-    const name = { sqrt: 'sqrt', abs: 'fabs', floor: 'floor', sin: 'sin', cos: 'cos', tan: 'tan', exp: 'exp', ln: 'log', log10: 'log10' }[fn]
+    const name = { sqrt: 'sqrt', abs: 'fabs', floor: 'floor', ceil: 'ceil', round: 'round', sin: 'sin', cos: 'cos', tan: 'tan', exp: 'exp', ln: 'log', log10: 'log10' }[fn]
     return atom(`${name}(${this.expr(arg).s})`)
   }
   protected constant(name: 'pi' | 'e') {
@@ -647,8 +757,40 @@ class CEmitter extends Emitter {
   protected toFloat(e: Expr) {
     return { s: `(double) ${this.wrap(e, 8)}`, p: 7 }
   }
+  protected copyStmt(name: string, from: string): string[] {
+    const el = this.ty(elemOf(this.listType(from)))
+    const n = this.varName(name)
+    const f = this.varName(from)
+    return [`${el} ${n}[${f}_len == 0 ? 1 : ${f}_len];`, `size_t ${n}_len = ${f}_len;`, `for (size_t i = 0; i < ${f}_len; i++) ${n}[i] = ${f}[i];`]
+  }
+  protected allocStmt(name: string, type: ListType, len: Expr, fill: Expr): string[] {
+    const n = this.varName(name)
+    const m = this.expr(len).s
+    return [`${this.ty(elemOf(type))} ${n}[(size_t) (${m}) == 0 ? 1 : (size_t) (${m})];`, `size_t ${n}_len = (size_t) (${m});`, `for (size_t i = 0; i < ${n}_len; i++) ${n}[i] = ${this.expr(fill).s};`]
+  }
+  protected setAtStmt(list: string, index: Expr, value: Expr): string {
+    return `${this.varName(list)}[(size_t) (${this.expr(index).s})] = ${this.expr(value).s}`
+  }
   protected lenExpr(list: string) {
+    if (this.isStrName(list)) {
+      this.uses.add('string')
+      return { s: `(long long) strlen(${this.varName(list)})`, p: 7 }
+    }
     return { s: `(long long) ${snake(list)}_len`, p: 7 }
+  }
+  protected callExpr(name: string, args: Expr[]): Code {
+    const f = this.p.fns.find((x) => x.name === name)
+    const parts: string[] = []
+    args.forEach((a, i) => {
+      parts.push(this.expr(a).s)
+      const pt = f?.params[i]
+      if (pt && isList(pt.type) && a.k === 'var') parts.push(`${this.varName(a.name)}_len`)
+    })
+    return atom(`${this.fnName(name)}(${parts.join(', ')})`)
+  }
+  protected concatExpr(l: Expr, r: Expr): Code {
+    this.uses.add('concat')
+    return atom(`c_concat((char[]){(char) (${this.expr(l).s}), 0}, ${this.expr(r).s})`)
   }
   protected varName(n: string) {
     return snake(n)
@@ -656,9 +798,10 @@ class CEmitter extends Emitter {
   protected fnName(n: string) {
     return snake(n)
   }
-  ty(t: Scalar) {
+  ty(t: Scalar | Type) {
     if (t === 'bool') this.uses.add('bool')
-    return { int: 'long long', float: 'double', bool: 'bool', str: 'const char *' }[t]
+    if (t === 'int[]' || t === 'float[]') return t === 'int[]' ? 'long long' : 'double'
+    return { int: 'long long', float: 'double', bool: 'bool', str: 'const char *' }[t as Scalar]
   }
   protected declare(name: string, t: Scalar, value: string) {
     return `${this.ty(t)} ${this.varName(name)} = ${value};`
@@ -673,6 +816,11 @@ class CEmitter extends Emitter {
     return { head: `for (size_t ${i} = 0; ${i} < ${l}_len; ${i}++)`, prelude: `${this.ty(elem)} ${this.varName(name)} = ${l}[${i}];` }
   }
   protected returnStmt(v: string) {
+    if (isList(this.fn.returns)) {
+      const n = v.replace(/[^A-Za-z0-9_]/g, '') || 'out'
+      const copy = [`for (size_t _i = 0; _i < ${n}_len; _i++) out[_i] = ${n}[_i];`]
+      return this.fn.fallible ? [...copy, `*out_n = ${n}_len;`, 'return true;'] : [...copy, `return ${n}_len;`]
+    }
     return this.fn.fallible ? [`*out_valor = ${v};`, 'return true;'] : [`return ${v};`]
   }
   protected failStmt(m: string) {
@@ -693,8 +841,10 @@ class CEmitter extends Emitter {
       if (isList(x.type)) params.push(`const ${this.ty(elemOf(x.type))} *${this.varName(x.name)}`, `size_t ${this.varName(x.name)}_len`)
       else params.push(`${this.ty(x.type as Scalar)} ${this.varName(x.name)}`)
     }
-    if (f.fallible) params.push(`${this.ty(f.returns)}${f.returns === 'str' ? '' : ' '}*out_valor`, 'const char **out_error')
-    const ret = f.fallible ? 'bool' : this.ty(f.returns)
+    if (isList(f.returns)) params.push(`${this.ty(elemOf(f.returns))} *out`)
+    if (f.fallible && isList(f.returns)) params.push('size_t *out_n', 'const char **out_error')
+    else if (f.fallible) params.push(`${this.ty(f.returns as Scalar)}${f.returns === 'str' ? '' : ' '}*out_valor`, 'const char **out_error')
+    const ret = f.fallible ? 'bool' : isList(f.returns) ? 'size_t' : this.ty(f.returns as Scalar)
     const sep = ret.endsWith('*') ? '' : ' '
     this.open(`static ${ret}${sep}${this.fnName(f.name)}(${params.length ? params.join(', ') : 'void'})`)
     this.fnBody(f)
@@ -717,9 +867,43 @@ class CEmitter extends Emitter {
   }
   protected mainFn() {
     const fn = entryFn(this.p)
-    const [spec, conv] = this.fmt(fn.returns)
     const format = (label: string, tail: string) => this.strLit(`${label.replace(/%/g, '%%')}${tail}\n`)
     this.open('int main(void)')
+    if (isList(fn.returns)) {
+      const el = this.ty(elemOf(fn.returns))
+      const spec = fn.returns === 'int[]' ? '%lld' : '%.15g'
+      for (const t of this.tests) {
+        const args = this.callArgs(t)
+        const label = this.label(t)
+        this.open('')
+        this.line(`${el} out[512];`)
+        if (fn.fallible) {
+          this.line('size_t n = 0;')
+          this.line('const char *error;')
+          this.open(`if (${this.fnName(fn.name)}(${args}${args ? ', ' : ''}out, &n, &error))`)
+          this.line(`printf(${this.strLit(`${label} => [`)});`)
+          this.open('for (size_t i = 0; i < n; i++)')
+          this.line(`printf(i ? ", ${spec}" : "${spec}", out[i]);`)
+          this.close()
+          this.line('printf("]\\n");')
+          this.mid('else')
+          this.line(`printf(${format(label, ' => error: %s')}, error);`)
+          this.close()
+        } else {
+          this.line(`size_t n = ${this.fnName(fn.name)}(${args}${args ? ', ' : ''}out);`)
+          this.line(`printf(${this.strLit(`${label} => [`)});`)
+          this.open('for (size_t i = 0; i < n; i++)')
+          this.line(`printf(i ? ", ${spec}" : "${spec}", out[i]);`)
+          this.close()
+          this.line('printf("]\\n");')
+        }
+        this.close()
+      }
+      this.line('return 0;')
+      this.close()
+      return
+    }
+    const [spec, conv] = this.fmt(fn.returns as Scalar)
     for (const t of this.tests) {
       const args = this.callArgs(t)
       const label = this.label(t)
@@ -750,8 +934,12 @@ class CEmitter extends Emitter {
     const lines = [`/* ${pascal(this.p.entry)}: generado por EXODIA Dev Lab. */`]
     if (this.uses.has('bool')) lines.push('#include <stdbool.h>')
     if (this.uses.has('math')) lines.push('#include <math.h>')
+    if (this.uses.has('string') || this.uses.has('concat')) lines.push('#include <string.h>')
+    if (this.uses.has('concat')) lines.push('#include <stdlib.h>')
     lines.push('#include <stdio.h>', '')
     if (this.uses.has('pi')) lines.push('#ifndef M_PI', '#define M_PI 3.14159265358979323846', '#endif', '')
+    if (this.uses.has('concat'))
+      lines.push('static char *c_concat(const char *a, const char *b) {', '    size_t na = strlen(a), nb = strlen(b);', '    char *s = (char *) malloc(na + nb + 1);', '    memcpy(s, a, na);', '    memcpy(s + na, b, nb);', '    s[na + nb] = 0;', '    return s;', '}', '')
     return lines
   }
   fileName() {
@@ -769,7 +957,7 @@ class CppEmitter extends Emitter {
   }
   protected mathExpr(fn: MathFn, arg: Expr) {
     this.uses.add('cmath')
-    const name = { sqrt: 'sqrt', abs: 'abs', floor: 'floor', sin: 'sin', cos: 'cos', tan: 'tan', exp: 'exp', ln: 'log', log10: 'log10' }[fn]
+    const name = { sqrt: 'sqrt', abs: 'abs', floor: 'floor', ceil: 'ceil', round: 'round', sin: 'sin', cos: 'cos', tan: 'tan', exp: 'exp', ln: 'log', log10: 'log10' }[fn]
     return atom(`std::${name}(${this.expr(arg).s})`)
   }
   protected constant(name: 'pi' | 'e') {
@@ -785,6 +973,17 @@ class CppEmitter extends Emitter {
   }
   protected atExpr(list: string, index: Expr) {
     return atom(`${snake(list)}[static_cast<std::size_t>(${this.expr(index).s})]`)
+  }
+  protected copyStmt(name: string, from: string): string[] {
+    return [`auto ${this.varName(name)} = ${this.varName(from)}`]
+  }
+  protected allocStmt(name: string, type: ListType, len: Expr, fill: Expr): string[] {
+    this.uses.add('vector')
+    const el = type === 'int[]' ? 'long long' : 'double'
+    return [`std::vector<${el}> ${this.varName(name)}(static_cast<std::size_t>(${this.expr(len).s}), ${this.expr(fill).s})`]
+  }
+  protected setAtStmt(list: string, index: Expr, value: Expr): string {
+    return `${this.varName(list)}[static_cast<std::size_t>(${this.expr(index).s})] = ${this.expr(value).s}`
   }
   protected varName(n: string) {
     return snake(n)
@@ -838,6 +1037,8 @@ class CppEmitter extends Emitter {
     const fn = entryFn(this.p)
     this.open('int main()')
     this.line('std::cout << std::setprecision(15) << std::boolalpha;')
+    if (isList(fn.returns))
+      this.line('auto mostrar = [](const auto& xs) { std::cout << \'[\'; for (std::size_t i = 0; i < xs.size(); ++i) { if (i) std::cout << ", "; std::cout << xs[i]; } std::cout << \']\'; };')
     for (const t of this.tests) {
       const call = `${this.fnName(fn.name)}(${this.callArgs(t)})`
       const label = this.strLit(`${this.label(t)} => `)
@@ -845,10 +1046,16 @@ class CppEmitter extends Emitter {
         this.open('try')
         // Se calcula antes de escribir: si lanza, la etiqueta no queda impresa a medias.
         this.line(`const auto resultado = ${call};`)
-        this.line(`std::cout << ${label} << resultado << '\\n';`)
+        this.line(`std::cout << ${label};`)
+        this.line(isList(fn.returns) ? 'mostrar(resultado);' : `std::cout << resultado;`)
+        this.line(`std::cout << '\\n';`)
         this.mid('catch (const std::invalid_argument& e)')
         this.line(`std::cout << ${this.strLit(`${this.label(t)} => error: `)} << e.what() << '\\n';`)
         this.close()
+      } else if (isList(fn.returns)) {
+        this.line(`std::cout << ${label};`)
+        this.line(`mostrar(${call});`)
+        this.line(`std::cout << '\\n';`)
       } else this.line(`std::cout << ${label} << ${call} << '\\n';`)
     }
     this.line('return 0;')
@@ -882,7 +1089,8 @@ class CSharpEmitter extends Emitter {
     return atom(`Math.Pow(${this.expr(b).s}, ${this.expr(x).s})`)
   }
   protected mathExpr(fn: MathFn, arg: Expr) {
-    const name = { sqrt: 'Sqrt', abs: 'Abs', floor: 'Floor', sin: 'Sin', cos: 'Cos', tan: 'Tan', exp: 'Exp', ln: 'Log', log10: 'Log10' }[fn]
+    if (fn === 'round') return this.roundHalfAway(arg, (x) => `Math.Floor(${x})`, (x) => `Math.Ceiling(${x})`)
+    const name = { sqrt: 'Sqrt', abs: 'Abs', floor: 'Floor', ceil: 'Ceiling', sin: 'Sin', cos: 'Cos', tan: 'Tan', exp: 'Exp', ln: 'Log', log10: 'Log10' }[fn]
     return atom(`Math.${name}(${this.expr(arg).s})`)
   }
   protected constant(name: 'pi' | 'e') {
@@ -891,8 +1099,25 @@ class CSharpEmitter extends Emitter {
   protected toFloat(e: Expr) {
     return { s: `(double)${this.wrap(e, 8)}`, p: 7 }
   }
+  protected copyStmt(name: string, from: string): string[] {
+    const t = this.ty(this.listType(from))
+    return [`${t} ${this.varName(name)} = (${t})${this.varName(from)}.Clone()`]
+  }
+  protected allocStmt(name: string, type: ListType, len: Expr, fill: Expr): string[] {
+    const n = this.varName(name)
+    return [`${this.ty(type)} ${n} = new ${this.ty(elemOf(type))}[(int) (${this.expr(len).s})]`, `for (int _ai = 0; _ai < ${n}.Length; _ai++) ${n}[_ai] = ${this.expr(fill).s}`]
+  }
   protected lenExpr(list: string) {
-    return atom(`${list}.Length`)
+    return atom(`${this.varName(list)}.Length`)
+  }
+  protected atExpr(list: string, index: Expr) {
+    return atom(`${this.varName(list)}[(int) (${this.expr(index).s})]`)
+  }
+  protected setAtStmt(list: string, index: Expr, value: Expr): string {
+    return `${this.varName(list)}[(int) (${this.expr(index).s})] = ${this.expr(value).s}`
+  }
+  protected showValue(x: string, t: Type) {
+    return isList(t) ? `"[" + string.Join(", ", ${x}) + "]"` : x
   }
   ty(t: Type) {
     return { int: 'long', float: 'double', bool: 'bool', str: 'string', 'int[]': 'long[]', 'float[]': 'double[]' }[t]
@@ -939,11 +1164,11 @@ class CSharpEmitter extends Emitter {
       const label = this.strLit(`${this.label(t)} => `)
       if (fn.fallible) {
         this.open('try')
-        this.line(`Console.WriteLine(${label} + ${call});`)
+        this.line(`Console.WriteLine(${label} + ${this.showValue(call, fn.returns)});`)
         this.mid('catch (ArgumentException e)')
         this.line(`Console.WriteLine(${this.strLit(`${this.label(t)} => error: `)} + e.Message);`)
         this.close()
-      } else this.line(`Console.WriteLine(${label} + ${call});`)
+      } else this.line(`Console.WriteLine(${label} + ${this.showValue(call, fn.returns)});`)
     }
     this.close()
   }
@@ -1077,7 +1302,7 @@ class GoEmitter extends Emitter {
       case 'pow':
         return math('Pow', [e.base, e.exp])
       case 'math':
-        return math({ sqrt: 'Sqrt', abs: 'Abs', floor: 'Floor', sin: 'Sin', cos: 'Cos', tan: 'Tan', exp: 'Exp', ln: 'Log', log10: 'Log10' }[e.fn], [e.arg])
+        return math({ sqrt: 'Sqrt', abs: 'Abs', floor: 'Floor', ceil: 'Ceil', round: 'Round', sin: 'Sin', cos: 'Cos', tan: 'Tan', exp: 'Exp', ln: 'Log', log10: 'Log10' }[e.fn], [e.arg])
       case 'const':
         this.uses.add('math')
         return lit(e.name === 'pi' ? 'math.Pi' : 'math.E')
@@ -1087,10 +1312,18 @@ class GoEmitter extends Emitter {
         return { t: 'call', fun: 'len', args: [lit(e.list)] }
       case 'at':
         return { t: 'index', x: lit(e.list), i: this.toG(e.index) }
+      case 'concat': {
+        const left = e.l.k === 'at' && this.isStrName(e.l.list) ? { t: 'call' as const, fun: 'string', args: [this.toG(e.l)] } : this.toG(e.l)
+        return { t: 'bin', op: '+', x: left, y: this.toG(e.r) }
+      }
+      case 'slice':
+        return { t: 'index', x: lit(e.str), i: lit(`${goPrint(this.toG(e.from), 1)}:${goPrint(this.toG(e.to), 1)}`) }
       case 'call':
         return { t: 'call', fun: e.fn, args: e.args.map((a) => this.toG(a)) }
       case 'bin': {
         const op = e.op === 'and' ? '&&' : e.op === 'or' ? '||' : e.op === '//' ? '/' : e.op
+        if ((e.op === '==' || e.op === '!=') && e.l.k === 'at' && e.r.k === 'str' && [...e.r.v].length === 1 && this.isStrName(e.l.list))
+          return { t: 'bin', op, x: this.toG(e.l), y: lit(`'${e.r.v.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`) }
         const p = gp(op)
         let x = this.toG(e.l)
         let y = this.toG(e.r)
@@ -1118,14 +1351,26 @@ class GoEmitter extends Emitter {
   protected toFloat(e: Expr) {
     return this.expr({ k: 'toFloat', e })
   }
+  protected setAtStmt(list: string, index: Expr, value: Expr): string {
+    return `${list}[${goPrint(this.toG(index), 2)}] = ${this.expr(value).s}`
+  }
+  protected copyStmt(name: string, from: string): string[] {
+    return [`${name} := append(${this.ty(this.listType(from))}(nil), ${from}...)`]
+  }
+  protected allocStmt(name: string, type: ListType, len: Expr, fill: Expr): string[] {
+    const made = `${name} := make(${this.ty(type)}, ${this.expr(len).s})`
+    if ((fill.k === 'int' || fill.k === 'float') && fill.v === 0) return [made]
+    return [made, `for i := range ${name} {`, `${this.indentUnit}${name}[i] = ${this.expr(fill).s}`, '}']
+  }
   protected lenExpr(list: string) {
     return this.expr({ k: 'len', list })
   }
   ty(t: Type) {
     return { int: 'int', float: 'float64', bool: 'bool', str: 'string', 'int[]': '[]int', 'float[]': '[]float64' }[t]
   }
-  private zero(t: Scalar) {
-    return { int: '0', float: '0', bool: 'false', str: '""' }[t]
+  private zero(t: Type) {
+    if (isList(t)) return 'nil'
+    return { int: '0', float: '0', bool: 'false', str: '""' }[t as Scalar]
   }
   protected declare(name: string, _t: Scalar, value: string) {
     return `${name} := ${value}`
@@ -1207,7 +1452,8 @@ class RustEmitter extends Emitter {
   }
   private receiver(e: Expr): string {
     if (e.k === 'float') return e.v < 0 ? `(${this.floatLit(e.v)}_f64)` : `${this.floatLit(e.v)}_f64`
-    return this.wrap(e, ATOM)
+    if (e.k === 'neg' && e.e.k === 'float') return `(${this.floatLit(-e.e.v)}_f64)`
+    return `(${this.wrap(e, ATOM)} as f64)`
   }
   protected powExpr(b: Expr, x: Expr) {
     return atom(`${this.receiver(b)}.powf(${this.expr(x).s})`)
@@ -1222,16 +1468,33 @@ class RustEmitter extends Emitter {
     return { s: `${this.wrap(e, 8)} as f64`, p: 8 }
   }
   protected lenExpr(list: string) {
-    return { s: `${snake(list)}.len() as i64`, p: 8 }
+    return this.isStrName(list) ? { s: `${snake(list)}.chars().count() as i64`, p: 8 } : { s: `${snake(list)}.len() as i64`, p: 8 }
   }
   protected atExpr(list: string, index: Expr) {
-    return atom(`${snake(list)}[${this.wrap(index, 8)} as usize]`)
+    const i = `${this.wrap(index, 8)} as usize`
+    return atom(this.isStrName(list) ? `${snake(list)}.chars().nth(${i}).unwrap()` : `${snake(list)}[${i}]`)
   }
-  ty(t: Type) {
-    return { int: 'i64', float: 'f64', bool: 'bool', str: '&\'static str', 'int[]': '&[i64]', 'float[]': '&[f64]' }[t]
+  protected setAtStmt(list: string, index: Expr, value: Expr): string {
+    return `${this.varName(list)}[${this.wrap(index, 8)} as usize] = ${this.expr(value).s}`
+  }
+  protected copyStmt(name: string, from: string): string[] {
+    return [`let mut ${this.varName(name)} = ${this.varName(from)}.to_vec()`]
+  }
+  protected allocStmt(name: string, _type: ListType, len: Expr, fill: Expr): string[] {
+    return [`let mut ${this.varName(name)} = vec![${this.expr(fill).s}; ${this.wrap(len, 8)} as usize]`]
+  }
+  ty(t: Type, ret = false) {
+    if (t === 'int[]') return ret ? 'Vec<i64>' : '&[i64]'
+    if (t === 'float[]') return ret ? 'Vec<f64>' : '&[f64]'
+    if (t === 'str') return ret ? 'String' : '&str'
+    return { int: 'i64', float: 'f64', bool: 'bool', str: '&str' }[t as Scalar]
   }
   protected declare(name: string, t: Scalar, value: string) {
-    return `let ${this.mutable.has(name) ? 'mut ' : ''}${this.varName(name)}: ${t === 'str' ? '&str' : this.ty(t)} = ${value};`
+    if (t === 'str') return `let ${this.mutable.has(name) ? 'mut ' : ''}${this.varName(name)}: String = ${value}.to_string();`
+    return `let ${this.mutable.has(name) ? 'mut ' : ''}${this.varName(name)}: ${this.ty(t)} = ${value};`
+  }
+  protected concatExpr(l: Expr, r: Expr): Code {
+    return atom(`format!("{}{}", ${this.expr(l).s}, ${this.expr(r).s})`)
   }
   protected forHead(name: string, from: string, to: string, used: boolean) {
     return `for ${used ? this.varName(name) : '_'} in ${from}..=${to}`
@@ -1240,7 +1503,8 @@ class RustEmitter extends Emitter {
     return { head: `for &${this.varName(name)} in ${this.varName(list)}` }
   }
   protected returnStmt(v: string, tail: boolean) {
-    const val = this.fn.fallible ? `Ok(${v})` : v
+    const s = this.fn.returns === 'str' && !v.includes('to_string') && !v.includes('String::from') ? `${v}.to_string()` : v
+    const val = this.fn.fallible ? `Ok(${s})` : s
     return [tail ? val : `return ${val};`]
   }
   protected failStmt(m: string, tail: boolean) {
@@ -1260,7 +1524,7 @@ class RustEmitter extends Emitter {
       this.line(`/// Devuelve \`Err\` ${f.failsDoc ? `${f.failsDoc.charAt(0).toLowerCase()}${f.failsDoc.slice(1)}` : 'si los datos no son válidos.'}`)
     }
     const params = f.params.map((x) => `${this.varName(x.name)}: ${this.ty(x.type)}`).join(', ')
-    const ret = f.fallible ? `Result<${this.ty(f.returns)}, String>` : this.ty(f.returns)
+    const ret = f.fallible ? `Result<${this.ty(f.returns, true)}, String>` : this.ty(f.returns, true)
     this.open(`fn ${this.fnName(f.name)}(${params}) -> ${ret}`)
     this.fnBody(f)
     this.close()
@@ -1279,10 +1543,10 @@ class RustEmitter extends Emitter {
       const label = this.strLit(this.label(t))
       if (fn.fallible) {
         this.open(`match ${call}`)
-        this.line(`Ok(valor) => println!("{} => {}", ${label}, valor),`)
+        this.line(`Ok(valor) => println!("{} => ${isList(fn.returns) ? '{:?}' : '{}'}", ${label}, valor),`)
         this.line(`Err(error) => println!("{} => error: {}", ${label}, error),`)
         this.close()
-      } else this.line(`println!("{} => {}", ${label}, ${call});`)
+      } else this.line(`println!("{} => ${isList(fn.returns) ? '{:?}' : '{}'}", ${label}, ${call});`)
     }
     this.close()
   }
@@ -1314,7 +1578,8 @@ class PhpEmitter extends Emitter {
     return { s: `${this.wrap(b, ATOM)} ** ${this.wrap(x, ATOM)}`, p: 8 }
   }
   protected mathExpr(fn: MathFn, arg: Expr) {
-    const name = { sqrt: 'sqrt', abs: 'abs', floor: 'floor', sin: 'sin', cos: 'cos', tan: 'tan', exp: 'exp', ln: 'log', log10: 'log10' }[fn]
+    if (fn === 'round') return this.roundHalfAway(arg, (x) => `floor(${x})`, (x) => `ceil(${x})`)
+    const name = { sqrt: 'sqrt', abs: 'abs', floor: 'floor', ceil: 'ceil', sin: 'sin', cos: 'cos', tan: 'tan', exp: 'exp', ln: 'log', log10: 'log10' }[fn]
     return atom(`${name}(${this.expr(arg).s})`)
   }
   protected constant(name: 'pi' | 'e') {
@@ -1323,8 +1588,21 @@ class PhpEmitter extends Emitter {
   protected toFloat(e: Expr) {
     return { s: `(float) ${this.wrap(e, 8)}`, p: 7 }
   }
+  protected copyStmt(name: string, from: string): string[] {
+    return [`$${name} = $${from}`]
+  }
+  protected allocStmt(name: string, _type: ListType, len: Expr, fill: Expr): string[] {
+    return [`$${name} = array_fill(0, ${this.expr(len).s}, ${this.expr(fill).s})`]
+  }
   protected lenExpr(list: string) {
-    return atom(`count($${list})`)
+    return atom(this.isStrName(list) ? `strlen($${list})` : `count($${list})`)
+  }
+  protected concatExpr(l: Expr, r: Expr): Code {
+    return { s: `${this.wrap(l, 5)} . ${this.paren(this.expr(r), 5, true)}`, p: 5 }
+  }
+  protected showValue(x: string, t: Type) {
+    if (isList(t)) return `'[' . implode(', ', ${x}) . ']'`
+    return x
   }
   ty(t: Type) {
     return { int: 'int', float: 'float', bool: 'bool', str: 'string', 'int[]': 'array', 'float[]': 'array' }[t]
@@ -1368,7 +1646,7 @@ class PhpEmitter extends Emitter {
   }
   protected mainFn() {
     const fn = entryFn(this.p)
-    const show = (x: string) => (fn.returns === 'bool' ? `(${x} ? 'true' : 'false')` : x)
+    const show = (x: string) => (fn.returns === 'bool' ? `(${x} ? 'true' : 'false')` : this.showValue(x, fn.returns))
     for (const t of this.tests) {
       const call = `${fn.name}(${this.callArgs(t)})`
       const label = this.strLit(`${this.label(t)} => `)

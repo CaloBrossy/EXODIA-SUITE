@@ -1,7 +1,17 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type {
   Calculation,
+  CalendarEvent,
+  Card,
+  CardReview,
   Concept,
+  Dataset,
+  ExamRun,
+  Report,
+  ExamPlan,
+  LibraryItem,
+  Mistake,
+  Exercise,
   DevProblem,
   FocusSession,
   Formula,
@@ -18,7 +28,7 @@ import { migrateConceptV2, migrateFormulaV2 } from './migrations'
 
 export const DB_NAME = 'exodia'
 /** Versión lógica del esquema; se incluye en las exportaciones JSON. */
-export const SCHEMA_VERSION = 3
+export const SCHEMA_VERSION = 12
 
 export class ExodiaDB extends Dexie {
   notes!: EntityTable<Note, 'id'>
@@ -33,6 +43,16 @@ export class ExodiaDB extends Dexie {
   tools!: EntityTable<ToolLink, 'id'>
   kv!: EntityTable<KvEntry, 'key'>
   devProblems!: EntityTable<DevProblem, 'id'>
+  events!: EntityTable<CalendarEvent, 'id'>
+  cards!: EntityTable<Card, 'id'>
+  reviews!: EntityTable<CardReview, 'id'>
+  exercises!: EntityTable<Exercise, 'id'>
+  examRuns!: EntityTable<ExamRun, 'id'>
+  datasets!: EntityTable<Dataset, 'id'>
+  reports!: EntityTable<Report, 'id'>
+  examPlans!: EntityTable<ExamPlan, 'id'>
+  mistakes!: EntityTable<Mistake, 'id'>
+  libraryItems!: EntityTable<LibraryItem, 'id'>
 
   constructor(name = DB_NAME) {
     super(name)
@@ -56,6 +76,18 @@ export class ExodiaDB extends Dexie {
       await tx.table('concepts').toCollection().modify((c: Concept) => Object.assign(c, migrateConceptV2(c)))
     })
     this.version(3).stores({ devProblems: 'id, updatedAt' })
+    this.version(4).stores({ events: 'id, startAt, endAt, subjectId, kind, originId, updatedAt' })
+    this.version(5).stores({ cards: 'id, subjectId, originKind, originId, dueAt, updatedAt, *tags' })
+    this.version(6).stores({ reviews: 'id, cardId, at' })
+    this.version(7).stores({
+      exercises: 'id, subjectId, topic, difficulty, status, updatedAt, *tags, *conceptIds',
+      examRuns: 'id, startedAt, subjectId',
+    })
+    this.version(8).stores({ datasets: 'id, subjectId, updatedAt' })
+    this.version(9).stores({ reports: 'id, subjectId, updatedAt' })
+    this.version(10).stores({ examPlans: 'id, eventId, subjectId, updatedAt' })
+    this.version(11).stores({ mistakes: 'id, subjectId, kind, at, updatedAt' })
+    this.version(12).stores({ libraryItems: 'id, subjectId, kind, updatedAt, *tags' })
     this.on('populate', (tx) => seedDatabase(tx))
   }
 }
@@ -75,5 +107,15 @@ export const TABLE_NAMES = [
   'tools',
   'kv',
   'devProblems',
+  'events',
+  'cards',
+  'reviews',
+  'exercises',
+  'examRuns',
+  'datasets',
+  'reports',
+  'examPlans',
+  'mistakes',
+  'libraryItems',
 ] as const
 export type TableName = (typeof TABLE_NAMES)[number]

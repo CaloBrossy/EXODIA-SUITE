@@ -7,8 +7,8 @@ const KIND = 'geometry' as const
 const POS = 'Las medidas deben ser positivas'
 const TRI = 'Los lados no cumplen la desigualdad triangular'
 
-type Shape = 'rectangulo' | 'cuadrado' | 'circulo' | 'triangulo'
-type Measure = 'area' | 'perimetro'
+type Shape = 'rectangulo' | 'cuadrado' | 'circulo' | 'triangulo' | 'esfera' | 'cilindro' | 'cubo' | 'prisma' | 'trapecio' | 'puntos'
+type Measure = 'area' | 'perimetro' | 'volumen' | 'distancia'
 
 interface Spec {
   fn: string
@@ -28,6 +28,29 @@ const r = ref
 
 function spec(shape: Shape, measure: Measure, strategy: string): Spec {
   const A = measure === 'area'
+  if (shape === 'esfera')
+    return measure === 'volumen'
+      ? { fn: 'volumenEsfera', params: P(['radio', 'radio de la esfera.']), tex: 'V = \\tfrac{4}{3}\\pi r^3', formulaText: 'V = 4/3 · π · radio³', value: mul(div(mul(flt(4), pi), flt(3)), mul(mul(r('radio'), r('radio')), r('radio'))), ref: ([x]) => (4 / 3) * Math.PI * x! ** 3, defaults: [3], extra: [[1], [0.5]] }
+      : { fn: 'areaEsfera', params: P(['radio', 'radio de la esfera.']), tex: 'A = 4\\pi r^2', formulaText: 'A = 4 · π · radio²', value: mul(mul(flt(4), pi), mul(r('radio'), r('radio'))), ref: ([x]) => 4 * Math.PI * x! ** 2, defaults: [3], extra: [[1], [0.5]] }
+  if (shape === 'cilindro')
+    return { fn: 'volumenCilindro', params: P(['radio', 'radio de la base.'], ['altura', 'altura del cilindro.']), tex: 'V = \\pi r^2 h', formulaText: 'V = π · radio² · altura', value: mul(mul(pi, mul(r('radio'), r('radio'))), r('altura')), ref: ([x, h]) => Math.PI * x! ** 2 * h!, defaults: [2, 5], extra: [[1, 1], [0.5, 4]] }
+  if (shape === 'cubo')
+    return { fn: 'volumenCubo', params: P(['lado', 'arista del cubo.']), tex: 'V = \\ell^3', formulaText: 'V = lado · lado · lado', value: mul(mul(r('lado'), r('lado')), r('lado')), ref: ([l]) => l! ** 3, defaults: [3], extra: [[1], [0.5]] }
+  if (shape === 'prisma')
+    return { fn: 'volumenPrisma', params: P(['largo', 'largo.'], ['ancho', 'ancho.'], ['alto', 'alto.']), tex: 'V = a\\cdot b\\cdot c', formulaText: 'V = largo · ancho · alto', value: mul(mul(r('largo'), r('ancho')), r('alto')), ref: ([a, b, c]) => a! * b! * c!, defaults: [2, 3, 4], extra: [[1, 1, 1], [0.5, 2, 3]] }
+  if (shape === 'trapecio')
+    return { fn: 'areaTrapecio', params: P(['baseA', 'primera base.'], ['baseB', 'segunda base.'], ['altura', 'altura.']), tex: 'A = \\frac{(B+b)\\,h}{2}', formulaText: 'A = (base mayor + base menor) · altura / 2', value: div(mul(add(r('baseA'), r('baseB')), r('altura')), flt(2)), ref: ([a, b, h]) => ((a! + b!) * h!) / 2, defaults: [6, 4, 3], extra: [[5, 5, 2], [10, 2, 1]] }
+  if (shape === 'puntos')
+    return {
+      fn: 'distancia',
+      params: P(['x1', 'x del primer punto.'], ['y1', 'y del primer punto.'], ['x2', 'x del segundo punto.'], ['y2', 'y del segundo punto.']),
+      tex: 'd = \\sqrt{(x_2-x_1)^2+(y_2-y_1)^2}',
+      formulaText: 'Distancia euclídea',
+      value: math('sqrt', add(mul(sub(r('x2'), r('x1')), sub(r('x2'), r('x1'))), mul(sub(r('y2'), r('y1')), sub(r('y2'), r('y1'))))),
+      ref: ([x1, y1, x2, y2]) => Math.hypot(x2! - x1!, y2! - y1!),
+      defaults: [0, 0, 3, 4],
+      extra: [[1, 2, 4, 6], [-1, 0, 2, 0]],
+    }
   switch (shape) {
     case 'rectangulo':
       return A
@@ -63,9 +86,15 @@ function spec(shape: Shape, measure: Measure, strategy: string): Spec {
   }
 }
 
-const SHAPE_LABEL: Record<Shape, string> = { rectangulo: 'rectángulo', cuadrado: 'cuadrado', circulo: 'círculo', triangulo: 'triángulo' }
+const SHAPE_LABEL: Record<Shape, string> = { rectangulo: 'rectángulo', cuadrado: 'cuadrado', circulo: 'círculo', triangulo: 'triángulo', esfera: 'esfera', cilindro: 'cilindro', cubo: 'cubo', prisma: 'prisma', trapecio: 'trapecio', puntos: 'puntos' }
 
 function shapeOf(t: string): Shape | null {
+  if (/esfera|bola/.test(t)) return 'esfera'
+  if (/cilindr/.test(t)) return 'cilindro'
+  if (/\bcubo\b/.test(t)) return 'cubo'
+  if (/prisma|ortoedro|paralelepiped/.test(t)) return 'prisma'
+  if (/trapeci/.test(t)) return 'trapecio'
+  if (/distancia entre|distancia de .+ a /.test(t)) return 'puntos'
   if (/rectangul/.test(t)) return 'rectangulo'
   if (/\bcuadrado\b/.test(t) && !/(metros|unidades|centimetros) cuadrad/.test(t)) return 'cuadrado'
   if (/circul|circunferencia|\bdisco\b/.test(t)) return 'circulo'
@@ -74,6 +103,8 @@ function shapeOf(t: string): Shape | null {
 }
 
 function measureOf(t: string): Measure | 'both' | null {
+  if (/distancia/.test(t)) return 'distancia'
+  if (/volumen|capacidad/.test(t)) return 'volumen'
   const a = /\barea\b|superficie/.test(t)
   const p = /perimetro|longitud de la circunferencia|\bcontorno\b/.test(t)
   if (a && p) return 'both'
@@ -86,7 +117,10 @@ function build(text: string, strategyId?: string): Solution {
   if (!shape) return unsupported(KIND, 'Geometría', 'No reconocí la figura. Esta versión admite rectángulo, cuadrado, círculo y triángulo.')
   const decimal = decimalCommaClarifications(text)
   if (decimal) return needsClarification(KIND, 'Geometría', { summary: 'Hay un número con coma.', ambiguities: ['¿La coma separa decimales o dos medidas distintas?'] }, decimal)
-  const measure = measureOf(t)
+  let measure = measureOf(t)
+  if (measure === null && (shape === 'esfera' || shape === 'cilindro' || shape === 'cubo' || shape === 'prisma')) measure = 'volumen'
+  if (measure === null && shape === 'trapecio') measure = 'area'
+  if (measure === null && shape === 'puntos') measure = 'distancia'
   if (measure === null || measure === 'both')
     return needsClarification(
       KIND,
@@ -130,6 +164,10 @@ function build(text: string, strategyId?: string): Solution {
       values = [all[0]!]
       assumptions.push(`El número ${fmt(all[0]!)} se interpretó como el radio.`)
     }
+  } else if (shape === 'puntos') {
+    const pts = [...t.matchAll(/[([]\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*[)\]]/g)]
+    if (pts.length >= 2) values = [Number(pts[0]![1]), Number(pts[0]![2]), Number(pts[1]![1]), Number(pts[1]![2])]
+    else if (all.length >= 4) values = all.slice(0, 4)
   } else if (s.params.length === 1) {
     const lado = label(new RegExp(`lado\\s*(?:de|=|:|mide)?\\s*${num}`))
     values = lado !== undefined ? [lado] : all.slice(0, 1)
@@ -150,17 +188,20 @@ function build(text: string, strategyId?: string): Solution {
     values = s.defaults
     assumptions.push(`Se usan medidas de ejemplo: ${s.params.map((p, i) => `${p.name} = ${fmt(values[i]!)}`).join(', ')}. El programa sirve para cualquier medida.`)
   }
+  const coords = shape === 'puntos'
   const reference = (v: number[]) => {
-    if (v.some((x) => x <= 0)) throw new RefError(POS)
+    if (!coords && v.some((x) => x <= 0)) throw new RefError(POS)
     if (s.triangle) {
       const [a, b, c] = v as [number, number, number]
       if (a + b <= c || a + c <= b || b + c <= a) throw new RefError(TRI)
     }
     return s.ref(v)
   }
-  const validation: Stmt[] = [
-    if_(s.params.map((p) => le(ref(p.name), flt(0))).reduce((x, y) => or(x, y)), [fail(POS)], undefined, { step: 1, note: 'Una longitud no puede ser cero ni negativa' }),
-  ]
+  const validation: Stmt[] = coords
+    ? []
+    : [
+        if_(s.params.map((p) => le(ref(p.name), flt(0))).reduce((x, y) => or(x, y)), [fail(POS)], undefined, { step: 1, note: 'Una longitud no puede ser cero ni negativa' }),
+      ]
   if (s.triangle)
     validation.push(
       if_(or(or(le(add(ref('a'), ref('b')), ref('c')), le(add(ref('a'), ref('c')), ref('b'))), le(add(ref('b'), ref('c')), ref('a'))), [fail(TRI)], undefined, {
@@ -172,7 +213,7 @@ function build(text: string, strategyId?: string): Solution {
   const body: Stmt[] = [
     ...validation,
     ...(heron ? [let_('s', 'float', div(add(add(ref('a'), ref('b')), ref('c')), flt(2)), { step: 3, note: 'Semiperímetro' })] : []),
-    ret(s.value, { step: s.triangle ? (heron ? 4 : 3) : 2, note: s.formulaText }),
+    ret(s.value, { step: s.triangle ? (heron ? 4 : 3) : coords ? 2 : 2, note: s.formulaText }),
   ]
   const result = (() => {
     try {
@@ -181,9 +222,10 @@ function build(text: string, strategyId?: string): Solution {
       return (e as Error).message
     }
   })()
-  const unit = measure === 'area' ? 'u^2' : 'u'
+  const unit = measure === 'volumen' ? 'u^3' : measure === 'area' ? 'u^2' : 'u'
+  const measureName = measure === 'area' ? 'área' : measure === 'perimetro' ? 'perímetro' : measure === 'volumen' ? 'volumen' : 'distancia'
   const mathSteps: MathStep[] = [
-    { text: `Fórmula del ${measure === 'area' ? 'área' : 'perímetro'} del ${SHAPE_LABEL[shape]}.`, tex: s.tex },
+    { text: measure === 'distancia' ? 'Fórmula de la distancia euclídea.' : `Fórmula del ${measureName} del ${SHAPE_LABEL[shape]}.`, tex: s.tex },
     { text: 'Datos.', tex: s.params.map((p, i) => `${p.name} = ${texNum(values[i]!)}`).join(',\\quad ') },
   ]
   if (heron && typeof result === 'number') {
@@ -191,46 +233,56 @@ function build(text: string, strategyId?: string): Solution {
     mathSteps.push({ text: 'Semiperímetro.', tex: `s = \\frac{${values.map(texNum).join(' + ')}}{2} = ${texNum(sp)}` })
     mathSteps.push({ text: 'Sustitución.', tex: `A = \\sqrt{${texNum(sp)} (${texNum(sp)} - ${texNum(values[0]!)})(${texNum(sp)} - ${texNum(values[1]!)})(${texNum(sp)} - ${texNum(values[2]!)})}` })
   }
-  const what = `${measure === 'area' ? 'área' : 'perímetro'} del ${SHAPE_LABEL[shape]}`
+  const what = coords ? 'distancia entre dos puntos' : `${measureName} del ${SHAPE_LABEL[shape]}`
+  const titleOf =
+    measure === 'area' ? `Área del ${SHAPE_LABEL[shape]}` : measure === 'perimetro' ? `Perímetro del ${SHAPE_LABEL[shape]}` : measure === 'volumen' ? `Volumen del ${SHAPE_LABEL[shape]}` : 'Distancia entre dos puntos'
   return {
     kind: KIND,
-    title: `${measure === 'area' ? 'Área' : 'Perímetro'} del ${SHAPE_LABEL[shape]}`,
+    title: titleOf,
     status: 'ok',
     analysis: emptyAnalysis({
-      summary: `Calcular el ${what} a partir de sus medidas.`,
+      summary: `Calcular ${coords ? 'la' : 'el'} ${what} a partir de ${coords ? 'las coordenadas' : 'sus medidas'}.`,
       goal: `El ${what}.`,
       known: s.params.map((p, i) => `${p.name} = ${fmt(values[i]!)}`),
-      unknown: [`${measure === 'area' ? 'A' : 'P'} (${measure === 'area' ? 'en unidades cuadradas' : 'en unidades de longitud'})`],
-      constraints: ['Todas las medidas deben ser positivas.', ...(s.triangle ? ['Desigualdad triangular: cada lado es menor que la suma de los otros dos.'] : [])],
-      conditions: ['Todas las medidas en la misma unidad.'],
-      edgeCases: ['Medidas iguales a 0 o negativas.', ...(s.triangle ? ['Triángulo degenerado, por ejemplo 1, 2, 3 (los puntos quedan alineados).'] : []), ...(shape === 'circulo' ? ['π es irracional: el resultado es una aproximación.'] : [])],
+      unknown: [coords ? 'd (misma unidad que las coordenadas)' : `${measure === 'area' ? 'A' : measure === 'volumen' ? 'V' : 'P'} (${measure === 'area' ? 'en unidades cuadradas' : measure === 'volumen' ? 'en unidades cúbicas' : 'en unidades de longitud'})`],
+      constraints: [...(coords ? [] : ['Todas las medidas deben ser positivas.']), ...(s.triangle ? ['Desigualdad triangular: cada lado es menor que la suma de los otros dos.'] : [])],
+      conditions: coords ? ['Misma unidad en ambos ejes.'] : ['Todas las medidas en la misma unidad.'],
+      edgeCases: [...(coords ? ['Puntos coincidentes: distancia 0.', 'Coordenadas negativas.'] : ['Medidas iguales a 0 o negativas.']), ...(s.triangle ? ['Triángulo degenerado, por ejemplo 1, 2, 3 (los puntos quedan alineados).'] : []), ...(shape === 'circulo' ? ['π es irracional: el resultado es una aproximación.'] : [])],
       assumptions,
     }),
     math: {
       steps: mathSteps,
-      validity: ['Medidas positivas.', ...(s.triangle ? ['Los lados forman un triángulo.'] : [])],
-      result: typeof result === 'number' ? { text: 'Resultado.', tex: `${measure === 'area' ? 'A' : 'P'} ${shape === 'circulo' ? '\\approx' : '='} ${texNum(result)}\\ \\mathrm{${unit}}` } : { text: result },
+      validity: [...(coords ? ['Cualquier par de puntos.'] : ['Medidas positivas.']), ...(s.triangle ? ['Los lados forman un triángulo.'] : [])],
+      result: typeof result === 'number' ? { text: 'Resultado.', tex: `${measure === 'area' ? 'A' : measure === 'volumen' ? 'V' : measure === 'distancia' ? 'd' : 'P'} ${shape === 'circulo' ? '\\approx' : '='} ${texNum(result)}\\ \\mathrm{${unit}}` } : { text: result },
       symbolicVsProgram: 'La fórmula es general; el programa la aplica a las medidas que reciba y además valida que tengan sentido geométrico, algo que en papel se da por supuesto.',
     },
     strategies,
     strategy: st.id,
     design: {
       inputs: s.params.map((p) => `${p.name}: real`),
-      outputs: [`${measure === 'area' ? 'área' : 'perímetro'}: real`],
+      outputs: [`${measureName}: real`],
       variables: heron ? ['s: semiperímetro'] : ['Ninguna adicional.'],
-      steps: s.triangle ? ['Validar que las medidas sean positivas.', 'Validar la desigualdad triangular.', ...(heron ? ['Calcular el semiperímetro.', 'Aplicar la fórmula de Herón.'] : ['Aplicar la fórmula.'])] : ['Validar que las medidas sean positivas.', 'Aplicar la fórmula.'],
-      conditions: ['Alguna medida ≤ 0 → error.', ...(s.triangle ? ['Desigualdad triangular no cumplida → error.'] : [])],
+      steps: s.triangle
+        ? ['Validar que las medidas sean positivas.', 'Validar la desigualdad triangular.', ...(heron ? ['Calcular el semiperímetro.', 'Aplicar la fórmula de Herón.'] : ['Aplicar la fórmula.'])]
+        : coords
+          ? ['Leer las cuatro coordenadas.', 'Aplicar d = √((x₂−x₁)²+(y₂−y₁)²).']
+          : ['Validar que las medidas sean positivas.', 'Aplicar la fórmula.'],
+      conditions: coords ? [] : ['Alguna medida ≤ 0 → error.', ...(s.triangle ? ['Desigualdad triangular no cumplida → error.'] : [])],
       loops: ['Ninguno.'],
       special: [],
       complexity: { time: 'O(1)', space: 'O(1)', why: 'Una cantidad fija de operaciones.' },
       comparison: strategies.length > 1 ? 'Base por altura es más simple pero exige conocer la altura; Herón solo necesita los lados, a cambio de más operaciones y de validar que formen un triángulo.' : undefined,
     },
-    program: { entry: s.fn, fns: [{ name: s.fn, params: s.params.map((p) => ({ ...p, type: 'float' as const })), returns: 'float', fallible: true, doc: `Calcula el ${what}.`, returnsDoc: `El ${what}.`, failsDoc: s.triangle ? 'Si alguna medida no es positiva o los lados no forman un triángulo.' : 'Si alguna medida no es positiva.', body }] },
+    program: { entry: s.fn, fns: [{ name: s.fn, params: s.params.map((p) => ({ ...p, type: 'float' as const })), returns: 'float', fallible: !coords, doc: `Calcula ${coords ? 'la' : 'el'} ${what}.`, returnsDoc: `El ${what}.`, failsDoc: coords ? undefined : s.triangle ? 'Si alguna medida no es positiva o los lados no forman un triángulo.' : 'Si alguna medida no es positiva.', body }] },
     tests: uniqueTests([
-      tc(values, () => reference(values), 'normal', 'Las medidas del enunciado.'),
-      ...s.extra.map((v) => tc(v, () => reference(v), 'normal', 'Otras medidas válidas.')),
-      tc(s.defaults.map((x, i) => (i === 0 ? 0 : x)), () => reference(s.defaults.map((x, i) => (i === 0 ? 0 : x))), 'inválido', 'Una medida igual a 0.'),
-      tc(s.defaults.map((x, i) => (i === 0 ? -x : x)), () => reference(s.defaults.map((x, i) => (i === 0 ? -x : x))), 'inválido', 'Una medida negativa.'),
+      tc(values, () => reference(values), 'normal', coords ? 'Los puntos del enunciado.' : 'Las medidas del enunciado.'),
+      ...s.extra.map((v) => tc(v, () => reference(v), 'normal', coords ? 'Otros puntos.' : 'Otras medidas válidas.')),
+      ...(coords
+        ? [tc([0, 0, 0, 0], () => 0, 'límite', 'Puntos coincidentes.')]
+        : [
+            tc(s.defaults.map((x, i) => (i === 0 ? 0 : x)), () => reference(s.defaults.map((x, i) => (i === 0 ? 0 : x))), 'inválido', 'Una medida igual a 0.'),
+            tc(s.defaults.map((x, i) => (i === 0 ? -x : x)), () => reference(s.defaults.map((x, i) => (i === 0 ? -x : x))), 'inválido', 'Una medida negativa.'),
+          ]),
       ...(s.triangle ? [tc([1, 2, 3], () => reference([1, 2, 3]), 'límite', 'Triángulo degenerado: 1 + 2 = 3.')] : []),
     ]),
     sqlNote: 'SQL no aplica: es un cálculo sobre valores sueltos, no una consulta sobre datos tabulares.',
@@ -245,11 +297,13 @@ function build(text: string, strategyId?: string): Solution {
 export const geometryKind: KindDef = {
   id: KIND,
   label: 'Geometría',
-  description: 'Área y perímetro de rectángulos, cuadrados, círculos y triángulos.',
+  description: 'Área, perímetro, volúmenes (esfera, cilindro, cubo, prisma), trapecio y distancia entre puntos.',
   examples: [
     { title: 'Área de un círculo', text: 'Área de un círculo de radio 2.5' },
     { title: 'Triángulo por sus lados', text: 'Área de un triángulo de lados 7, 8 y 9' },
     { title: 'Perímetro', text: 'Perímetro de un rectángulo de base 12 y altura 4.5' },
+    { title: 'Volumen de esfera', text: 'Volumen de una esfera de radio 3' },
+    { title: 'Distancia', text: 'Distancia entre (0, 0) y (3, 4)' },
   ],
   detect: (text) => (shapeOf(norm(text)) ? 0.8 : 0),
   build,

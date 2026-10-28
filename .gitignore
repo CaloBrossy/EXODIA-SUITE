@@ -4,3 +4,8 @@ dev-dist
 *.log
 .vite
 coverage
+.env
+.env.local
+.env.*.local
+
+landing-model/asdas/

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { ShannonTool } from './Shannon'
 import {
   add,
@@ -154,7 +154,7 @@ function LinearTool() {
           </div>
         ))}
         <ResultBox><span className="font-mono">{sys}</span></ResultBox>
-        <p className="text-xs text-muted">Eliminación gaussiana con pivoteo parcial.</p>
+        <p className="text-xs text-muted">Eliminación gaussiana con pivoteo parcial. <Link className="underline" to="/workbench/algebra">Matrices con fracciones y procedimiento</Link></p>
       </div>
     </div>
   )

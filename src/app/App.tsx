@@ -1,8 +1,12 @@
-import { lazy, useEffect, useState } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { db } from '@/db/db'
 import { describeStorageError } from '@/services/errors'
 import { FeedbackProvider } from '@/components/feedback'
+import { CosmicBackground } from '@/components/CosmicBackground'
+import { Loading } from '@/components/ui'
+import { AuthProvider, useAuth } from '@/hooks/useAuth'
+import { enteredOps, rootDestination } from './gate'
 import { Layout } from './Layout'
 
 const Dashboard = lazy(() => import('@/features/dashboard/Dashboard'))
@@ -15,6 +19,13 @@ const FocusPage = lazy(() => import('@/features/focus/FocusPage'))
 const SketchPage = lazy(() => import('@/features/sketch/SketchPage'))
 const ToolShelf = lazy(() => import('@/features/tools/ToolShelf'))
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'))
+const CalendarPage = lazy(() => import('@/features/calendar/CalendarPage'))
+const ReviewPage = lazy(() => import('@/features/review/ReviewPage'))
+const ExercisesPage = lazy(() => import('@/features/exercises/ExercisesPage'))
+const MistakesPage = lazy(() => import('@/features/exercises/MistakesPage'))
+const LibraryPage = lazy(() => import('@/features/library/LibraryPage'))
+const LandingPage = lazy(() => import('@/features/landing/LandingPage'))
+const AuthPage = lazy(() => import('@/features/auth/AuthPage'))
 
 function StorageGate({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<'opening' | 'ok' | string>('opening')
@@ -37,14 +48,52 @@ function StorageGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function PublicShell() {
+  const { pathname } = useLocation()
+  const auth = pathname === '/login' || pathname === '/register'
+  useEffect(() => {
+    document.documentElement.classList.add('public-doc')
+    return () => document.documentElement.classList.remove('public-doc')
+  }, [])
+  return (
+    <>
+      {auth && <CosmicBackground />}
+      <Suspense fallback={<div className="p-8"><Loading /></div>}>
+        <Outlet />
+      </Suspense>
+    </>
+  )
+}
+
+function RootGate() {
+  const { session, restoring } = useAuth()
+  if (restoring) return <p className="relative z-10 p-8 text-sm text-muted">Alineando el observatorio…</p>
+  if (rootDestination({ session: !!session, entered: enteredOps() }) === '/app') return <Navigate to="/app" replace />
+  return <LandingPage />
+}
+
+function OpsRoutes() {
+  return (
+    <StorageGate>
+      <Layout />
+    </StorageGate>
+  )
+}
+
 export function App() {
   return (
     <FeedbackProvider>
-      <StorageGate>
+      <AuthProvider>
         <BrowserRouter>
           <Routes>
-            <Route element={<Layout />}>
-              <Route index element={<Dashboard />} />
+            <Route element={<PublicShell />}>
+              <Route index element={<RootGate />} />
+              <Route path="welcome" element={<LandingPage />} />
+              <Route path="login" element={<AuthPage mode="login" />} />
+              <Route path="register" element={<AuthPage mode="register" />} />
+            </Route>
+            <Route element={<OpsRoutes />}>
+              <Route path="app" element={<Dashboard />} />
               <Route path="notes" element={<NotebookPage />} />
               <Route path="notes/:id" element={<NotebookPage />} />
               <Route path="knowledge" element={<KnowledgeList />} />
@@ -60,11 +109,16 @@ export function App() {
               <Route path="sketch/:id" element={<SketchPage />} />
               <Route path="tools" element={<ToolShelf />} />
               <Route path="settings" element={<SettingsPage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="calendar" element={<CalendarPage />} />
+              <Route path="review" element={<ReviewPage />} />
+              <Route path="exercises" element={<ExercisesPage />} />
+              <Route path="exercises/errores" element={<MistakesPage />} />
+              <Route path="library" element={<LibraryPage />} />
             </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
-      </StorageGate>
+      </AuthProvider>
     </FeedbackProvider>
   )
 }

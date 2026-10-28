@@ -17,7 +17,7 @@ export const elemOf = (t: ListType): 'int' | 'float' => (t === 'int[]' ? 'int' :
 export type ArithOp = '+' | '-' | '*' | '/' | '//' | '%'
 export type CmpOp = '==' | '!=' | '<' | '<=' | '>' | '>='
 export type BinOp = ArithOp | CmpOp | 'and' | 'or'
-export type MathFn = 'sqrt' | 'abs' | 'floor' | 'sin' | 'cos' | 'tan' | 'exp' | 'ln' | 'log10'
+export type MathFn = 'sqrt' | 'abs' | 'floor' | 'ceil' | 'round' | 'sin' | 'cos' | 'tan' | 'exp' | 'ln' | 'log10'
 
 export type Expr =
   | { k: 'int'; v: number }
@@ -34,6 +34,8 @@ export type Expr =
   | { k: 'toFloat'; e: Expr }
   | { k: 'len'; list: string }
   | { k: 'at'; list: string; index: Expr }
+  | { k: 'concat'; l: Expr; r: Expr }
+  | { k: 'slice'; str: string; from: Expr; to: Expr }
   | { k: 'call'; fn: string; args: Expr[] }
 
 /** `step` vincula la instrucción con un paso de la estrategia; `note` se emite como comentario. */
@@ -43,6 +45,11 @@ export type Stmt = Meta &
   (
     | { k: 'let'; name: string; type: Scalar; value: Expr }
     | { k: 'set'; name: string; value: Expr }
+    /** Copia una lista a una variable local (la entrada no se modifica). */
+    | { k: 'copy'; name: string; type: ListType; from: string }
+    /** Reserva una lista local de longitud `len`, rellena con `fill`. */
+    | { k: 'alloc'; name: string; type: ListType; len: Expr; fill: Expr }
+    | { k: 'setAt'; list: string; index: Expr; value: Expr }
     | { k: 'if'; cond: Expr; then: Stmt[]; else?: Stmt[] }
     /** Rango entero inclusivo: from, from+1, …, to. */
     | { k: 'for'; name: string; from: Expr; to: Expr; body: Stmt[] }
@@ -69,7 +76,7 @@ export interface Param {
 export interface Fn {
   name: string
   params: Param[]
-  returns: Scalar
+  returns: Type
   /** Puede terminar con un error de validación (`fail`). */
   fallible: boolean
   doc: string
@@ -118,10 +125,15 @@ export const euler: Expr = { k: 'const', name: 'e' }
 export const toF = (e: Expr): Expr => ({ k: 'toFloat', e })
 export const len = (list: string): Expr => ({ k: 'len', list })
 export const at = (list: string, index: Expr): Expr => ({ k: 'at', list, index })
+export const concat = (l: Expr, r: Expr): Expr => ({ k: 'concat', l, r })
+export const slice = (str: string, from: Expr, to: Expr): Expr => ({ k: 'slice', str, from, to })
 export const call = (fn: string, ...args: Expr[]): Expr => ({ k: 'call', fn, args })
 
 export const let_ = (name: string, type: Scalar, value: Expr, meta: Meta = {}): Stmt => ({ k: 'let', name, type, value, ...meta })
 export const set = (name: string, value: Expr, meta: Meta = {}): Stmt => ({ k: 'set', name, value, ...meta })
+export const copy = (name: string, type: ListType, from: string, meta: Meta = {}): Stmt => ({ k: 'copy', name, type, from, ...meta })
+export const alloc = (name: string, type: ListType, len: Expr, fill: Expr, meta: Meta = {}): Stmt => ({ k: 'alloc', name, type, len, fill, ...meta })
+export const setAt = (list: string, index: Expr, value: Expr, meta: Meta = {}): Stmt => ({ k: 'setAt', list, index, value, ...meta })
 export const if_ = (cond: Expr, then: Stmt[], els?: Stmt[], meta: Meta = {}): Stmt => ({ k: 'if', cond, then, else: els, ...meta })
 export const for_ = (name: string, from: Expr, to: Expr, body: Stmt[], meta: Meta = {}): Stmt => ({ k: 'for', name, from, to, body, ...meta })
 export const each = (name: string, list: string, body: Stmt[], meta: Meta = {}): Stmt => ({ k: 'each', name, list, body, ...meta })
@@ -177,15 +189,25 @@ export function typeOf(e: Expr, env: Env, p: Program): Type {
     case 'toFloat':
       if (typeOf(e.e, env, p) !== 'int') throw new IRError('Solo se convierten enteros a real')
       return 'float'
-    case 'len':
-      if (!isList(env.get(e.list) ?? 'int')) throw new IRError(`${e.list} no es una lista`)
-      return 'int'
+    case 'len': {
+      const t = env.get(e.list)
+      if (t === 'str' || isList(t ?? 'int')) return 'int'
+      throw new IRError(`${e.list} no es una lista ni un texto`)
+    }
     case 'at': {
       const t = env.get(e.list)
-      if (!t || !isList(t)) throw new IRError(`${e.list} no es una lista`)
       if (typeOf(e.index, env, p) !== 'int') throw new IRError('El índice debe ser entero')
+      if (t === 'str') return 'str'
+      if (!t || !isList(t)) throw new IRError(`${e.list} no es una lista ni un texto`)
       return elemOf(t)
     }
+    case 'concat':
+      if (typeOf(e.l, env, p) !== 'str' || typeOf(e.r, env, p) !== 'str') throw new IRError('La concatenación opera con textos')
+      return 'str'
+    case 'slice':
+      if (env.get(e.str) !== 'str') throw new IRError(`${e.str} no es un texto`)
+      if (typeOf(e.from, env, p) !== 'int' || typeOf(e.to, env, p) !== 'int') throw new IRError('El recorte usa índices enteros')
+      return 'str'
     case 'call': {
       const f = fnOf(p, e.fn)
       if (f.fallible) throw new IRError(`No se admite llamar a la función falible ${f.name} dentro de una expresión`)
@@ -228,6 +250,7 @@ export function terminates(body: Stmt[]): boolean {
 export function assignedVars(body: Stmt[], out = new Set<string>()): Set<string> {
   for (const s of body) {
     if (s.k === 'set') out.add(s.name)
+    if (s.k === 'setAt') out.add(s.list)
     if (s.k === 'if') {
       assignedVars(s.then, out)
       if (s.else) assignedVars(s.else, out)
@@ -245,6 +268,10 @@ function exprUses(e: Expr, name: string): boolean {
       return e.list === name
     case 'at':
       return e.list === name || exprUses(e.index, name)
+    case 'concat':
+      return exprUses(e.l, name) || exprUses(e.r, name)
+    case 'slice':
+      return e.str === name || exprUses(e.from, name) || exprUses(e.to, name)
     case 'bin':
       return exprUses(e.l, name) || exprUses(e.r, name)
     case 'neg':
@@ -278,6 +305,12 @@ export function usesVar(body: Stmt[], name: string): boolean {
         return s.list === name || usesVar(s.body, name)
       case 'while':
         return exprUses(s.cond, name) || usesVar(s.body, name)
+      case 'copy':
+        return s.from === name
+      case 'alloc':
+        return exprUses(s.len, name) || exprUses(s.fill, name)
+      case 'setAt':
+        return s.list === name || exprUses(s.index, name) || exprUses(s.value, name)
       default:
         return false
     }
@@ -296,6 +329,33 @@ function checkBody(body: Stmt[], env: Env, fn: Fn, p: Program, params: Set<strin
         if (typeOf(s.value, scope, p) !== s.type) throw new IRError(`Tipo incorrecto al declarar ${s.name}`)
         scope.set(s.name, s.type)
         break
+      case 'copy': {
+        if (!NAME.test(s.name)) throw new IRError(`Nombre inválido: ${s.name}`)
+        if (scope.has(s.name)) throw new IRError(`Variable redeclarada: ${s.name}`)
+        if (params.has(s.from)) {
+          /* se copia un parámetro: válido */
+        }
+        const src = scope.get(s.from)
+        if (src !== s.type) throw new IRError(`No se puede copiar ${s.from} como ${s.type}`)
+        scope.set(s.name, s.type)
+        break
+      }
+      case 'alloc': {
+        if (!NAME.test(s.name)) throw new IRError(`Nombre inválido: ${s.name}`)
+        if (scope.has(s.name)) throw new IRError(`Variable redeclarada: ${s.name}`)
+        if (typeOf(s.len, scope, p) !== 'int') throw new IRError('La longitud de alloc debe ser entera')
+        if (typeOf(s.fill, scope, p) !== elemOf(s.type)) throw new IRError(`Tipo incorrecto al rellenar ${s.name}`)
+        scope.set(s.name, s.type)
+        break
+      }
+      case 'setAt': {
+        if (params.has(s.list)) throw new IRError(`No se muta el parámetro ${s.list}; copiá la lista antes`)
+        const t = scope.get(s.list)
+        if (!t || !isList(t)) throw new IRError(`${s.list} no es una lista local`)
+        if (typeOf(s.index, scope, p) !== 'int') throw new IRError('El índice de asignación debe ser entero')
+        if (typeOf(s.value, scope, p) !== elemOf(t)) throw new IRError(`Tipo incorrecto al escribir ${s.list}[i]`)
+        break
+      }
       case 'set': {
         if (params.has(s.name)) throw new IRError(`No se reasignan parámetros (${s.name}); usá una variable local`)
         const t = scope.get(s.name)
@@ -317,6 +377,12 @@ function checkBody(body: Stmt[], env: Env, fn: Fn, p: Program, params: Set<strin
       }
       case 'each': {
         const t = scope.get(s.list)
+        if (t === 'str') {
+          if (scope.has(s.name)) throw new IRError(`Variable redeclarada: ${s.name}`)
+          const inner = new Map(scope).set(s.name, 'str' as const)
+          checkBody(s.body, inner, fn, p, new Set([...params, s.name]))
+          break
+        }
         if (!t || !isList(t)) throw new IRError(`${s.list} no es una lista`)
         if (scope.has(s.name)) throw new IRError(`Variable redeclarada: ${s.name}`)
         const inner = new Map(scope).set(s.name, elemOf(t))
@@ -375,6 +441,12 @@ export type Feature =
   | 'int'
   | 'float'
   | 'helper'
+  | 'setAt'
+  | 'listCopy'
+  | 'listAlloc'
+  | 'listRet'
+  | 'concat'
+  | 'slice'
 
 export function features(p: Program): Set<Feature> {
   const f = new Set<Feature>()
@@ -421,6 +493,16 @@ export function features(p: Program): Set<Feature> {
         f.add('index')
         ex(e.index, self)
         break
+      case 'concat':
+        f.add('concat').add('str')
+        ex(e.l, self)
+        ex(e.r, self)
+        break
+      case 'slice':
+        f.add('slice').add('str')
+        ex(e.from, self)
+        ex(e.to, self)
+        break
       case 'call':
         if (e.fn === self) f.add('recursion')
         e.args.forEach((a) => ex(a, self))
@@ -431,6 +513,17 @@ export function features(p: Program): Set<Feature> {
     for (const s of b) {
       if (s.k === 'let' || s.k === 'set' || s.k === 'return') ex(s.value, self)
       if (s.k === 'let' && s.type === 'float') f.add('float')
+      if (s.k === 'copy') f.add('listCopy').add('list')
+      if (s.k === 'alloc') {
+        f.add('listAlloc').add('list')
+        ex(s.len, self)
+        ex(s.fill, self)
+      }
+      if (s.k === 'setAt') {
+        f.add('setAt')
+        ex(s.index, self)
+        ex(s.value, self)
+      }
       if (s.k === 'if') {
         ex(s.cond, self)
         st(s.then, self)
@@ -458,6 +551,7 @@ export function features(p: Program): Set<Feature> {
     if (fn.returns === 'str') f.add('str')
     if (fn.returns === 'bool') f.add('bool')
     if (fn.params.some((x) => isList(x.type))) f.add('list')
+    if (isList(fn.returns)) f.add('listRet').add('list')
     if (fn.name !== p.entry) f.add('helper')
     st(fn.body, fn.name)
   }

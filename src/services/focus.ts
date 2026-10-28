@@ -46,9 +46,12 @@ export function sortTasks(tasks: Task[]): Task[] {
 
 // ---------- Materias ----------
 
-/** Orden alfabético según el idioma (IndexedDB ordena por código, dejando "Álgebra" al final). */
+/** Fuera de cursada: del plan pero pendiente, aprobada o libre. Va al final de los selectores. */
+const idle = (s: Subject) => !!s.plan && !['cursando', 'regular'].includes(s.plan.status)
+
+/** En curso primero; dentro de cada grupo, orden alfabético según el idioma (IndexedDB ordena por código). */
 export const listSubjects = async (): Promise<Subject[]> =>
-  (await db.subjects.toArray()).sort((a, b) => a.name.localeCompare(b.name, 'es'))
+  (await db.subjects.toArray()).sort((a, b) => Number(idle(a)) - Number(idle(b)) || a.name.localeCompare(b.name, 'es'))
 
 export type SubjectInput = Pick<Subject, 'name' | 'period' | 'objectives' | 'notes' | 'archived'>
 
@@ -56,11 +59,12 @@ export function saveSubject(input: SubjectInput, id?: string): Promise<string> {
   return guard('No se pudo guardar la materia', async () => {
     if (!input.name.trim()) throw new Error('La materia necesita un nombre')
     const now = Date.now()
+    const fields = { name: input.name.trim(), period: input.period, objectives: input.objectives, notes: input.notes, archived: input.archived }
     if (id) {
-      await db.subjects.update(id, { ...input, name: input.name.trim(), updatedAt: now })
+      await db.subjects.update(id, { ...fields, updatedAt: now })
       return id
     }
-    const s: Subject = { ...input, name: input.name.trim(), id: uid(), createdAt: now, updatedAt: now }
+    const s: Subject = { ...fields, id: uid(), createdAt: now, updatedAt: now }
     await db.subjects.add(s)
     return s.id
   })
@@ -68,11 +72,24 @@ export function saveSubject(input: SubjectInput, id?: string): Promise<string> {
 
 export function deleteSubject(id: string): Promise<void> {
   return guard('No se pudo eliminar la materia', () =>
-    db.transaction('rw', [db.subjects, db.tasks, db.notes, db.sessions], async () => {
+    db.transaction('rw', [db.subjects, db.tasks, db.notes, db.sessions, db.events, db.cards, db.exercises, db.datasets, db.reports, db.examPlans, db.mistakes, db.libraryItems], async () => {
+      await db.datasets.where('subjectId').equals(id).modify({ subjectId: null })
+      await db.reports.where('subjectId').equals(id).modify({ subjectId: null })
+      await db.examPlans.where('subjectId').equals(id).modify({ subjectId: null })
+      await db.mistakes.where('subjectId').equals(id).modify({ subjectId: null })
+      await db.libraryItems.where('subjectId').equals(id).modify({ subjectId: null })
       await db.tasks.where('subjectId').equals(id).modify({ subjectId: null })
       await db.notes.where('subjectId').equals(id).modify({ subjectId: null })
       await db.sessions.where('subjectId').equals(id).modify({ subjectId: null })
+      await db.events.where('subjectId').equals(id).modify({ subjectId: null })
+      await db.cards.where('subjectId').equals(id).modify({ subjectId: null })
+      await db.exercises.where('subjectId').equals(id).modify({ subjectId: null })
       await db.subjects.delete(id)
+      await db.subjects.toCollection().modify((s) => {
+        if (s.plan && (s.plan.requiresCourse.includes(id) || s.plan.requiresExam.includes(id))) {
+          s.plan = { ...s.plan, requiresCourse: s.plan.requiresCourse.filter((x) => x !== id), requiresExam: s.plan.requiresExam.filter((x) => x !== id) }
+        }
+      })
     }),
   )
 }

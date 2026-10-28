@@ -44,6 +44,7 @@ export default defineConfig(({ mode }) => ({
             devOptions: { enabled: false },
           }),
         ],
+  worker: { format: 'es' },
   build: { chunkSizeWarningLimit: 800 },
   test: {
     environment: 'node',

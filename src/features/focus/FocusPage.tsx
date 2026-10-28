@@ -11,8 +11,10 @@ import { Button, cx, ErrorText, Field, Input, Panel, pillClass } from '@/compone
 import { formatDateTime } from '@/lib/text'
 import { PomodoroTimer } from './PomodoroTimer'
 import { SessionSummary } from './SessionSummary'
+import { Plan } from './Plan'
 import { Subjects } from './Subjects'
 import { Tasks } from './Tasks'
+import { StudyStats } from './StudyStats'
 
 function PomodoroSettings() {
   const { config, state } = usePomodoro()
@@ -85,6 +87,8 @@ const TABS = [
   { id: 'timer', label: 'Pomodoro', to: '/focus' },
   { id: 'tasks', label: 'Tareas', to: '/focus/tasks' },
   { id: 'subjects', label: 'Materias', to: '/focus/subjects' },
+  { id: 'plan', label: 'Plan de estudios', to: '/focus/plan' },
+  { id: 'stats', label: 'Estadísticas', to: '/focus/stats' },
 ]
 
 export default function FocusPage() {
@@ -114,6 +118,8 @@ export default function FocusPage() {
       )}
       {tab === 'tasks' && <Tasks />}
       {tab === 'subjects' && <Subjects />}
+      {tab === 'plan' && <Plan />}
+      {tab === 'stats' && <StudyStats />}
     </div>
   )
 }

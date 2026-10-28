@@ -8,6 +8,12 @@ const UnitConverter = lazy(() => import('./UnitConverter'))
 const MathTools = lazy(() => import('./MathTools'))
 const Formulas = lazy(() => import('./Formulas'))
 const DevLab = lazy(() => import('./devlab/DevLab'))
+const DataLab = lazy(() => import('./DataLab'))
+const Symbolic = lazy(() => import('./Symbolic'))
+const Circuits = lazy(() => import('./Circuits'))
+const Reports = lazy(() => import('./Reports'))
+const Algebra = lazy(() => import('./Algebra'))
+const Refs = lazy(() => import('./Refs'))
 
 const TOOLS = [
   { id: 'calculator', label: 'Calculadora', el: Calculator },
@@ -15,6 +21,12 @@ const TOOLS = [
   { id: 'math', label: 'Matemática', el: MathTools },
   { id: 'units', label: 'Unidades', el: UnitConverter },
   { id: 'formulas', label: 'Fórmulas', el: Formulas },
+  { id: 'data', label: 'Gráficas', el: DataLab },
+  { id: 'symbolic', label: 'Simbólico', el: Symbolic },
+  { id: 'circuits', label: 'Circuitos', el: Circuits },
+  { id: 'algebra', label: 'Matrices', el: Algebra },
+  { id: 'reports', label: 'Informes', el: Reports },
+  { id: 'refs', label: 'Referencias', el: Refs },
   { id: 'dev', label: 'Programación', el: DevLab },
 ] as const
 

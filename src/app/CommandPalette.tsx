@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/db/db'
-import { matchesQuery } from '@/lib/text'
+import { searchRefs } from '@/lib/refs/catalog'
+import { formatDateTime, matchesQuery } from '@/lib/text'
+import { nextOccurrence } from '@/lib/calendar'
+import { EventKindLabel } from '@/db/models'
 import { cx, Kbd } from '@/components/ui'
 import { NAV } from './nav'
 
@@ -35,6 +38,17 @@ const TOOLS: [string, string, string][] = [
   ['Guía de estilo de lenguajes', '/workbench/dev?t=guia', 'convenciones nombres errores comunes'],
   ['Pomodoro', '/focus', 'temporizador concentración'],
   ['Tareas', '/focus/tasks', 'pendientes'],
+  ['Gráficas y ajuste de datos', '/workbench/data', 'regresión lineal mínimos cuadrados dispersión errores'],
+  ['Solver simbólico', '/workbench/symbolic', 'derivar integrar límites ecuaciones taylor'],
+  ['Análisis de circuitos', '/workbench/circuits', 'mallas thévenin transitorios rlc divisor'],
+  ['Matrices y álgebra lineal', '/workbench/algebra', 'determinante inversa autovalores gauss'],
+  ['Informes de laboratorio', '/workbench/reports', 'propagación de errores incertidumbre'],
+  ['Referencias técnicas', '/workbench/refs', 'tabla periódica resistencias derivadas griego'],
+  ['Planificador de examen', '/calendar', 'temas dominio repaso simulacro'],
+  ['Plan de estudios', '/focus/plan', 'carrera correlativas materias aprobadas promedio'],
+  ['Estadísticas de estudio', '/focus/stats', 'racha pomodoro horas meta calor'],
+  ['Registro de errores', '/exercises/errores', 'fallos patrones repasar'],
+  ['Biblioteca', '/library', 'libros capítulos lectura progreso'],
 ]
 
 /** Evento global para abrir la búsqueda desde cualquier módulo; `detail` = texto inicial. */
@@ -49,7 +63,7 @@ export function CommandPalette({ open, initialQuery = '', onClose }: { open: boo
   const navigate = useNavigate()
 
   const data = useLiveQuery(
-    async () => (open ? { notes: await db.notes.toArray(), concepts: await db.concepts.toArray(), formulas: await db.formulas.toArray(), tools: await db.tools.toArray() } : null),
+    async () => (open ? { notes: await db.notes.toArray(), concepts: await db.concepts.toArray(), formulas: await db.formulas.toArray(), tools: await db.tools.toArray(), events: await db.events.toArray(), cards: await db.cards.toArray(), exercises: await db.exercises.toArray(), datasets: await db.datasets.toArray(), reports: await db.reports.toArray(), mistakes: await db.mistakes.toArray(), library: await db.libraryItems.toArray() } : null),
     [open],
   )
 
@@ -76,6 +90,31 @@ export function CommandPalette({ open, initialQuery = '', onClose }: { open: boo
       for (const c of data.concepts) if (matchesQuery(q, c.title, c.tags, c.summary)) out.push({ id: c.id, label: c.title, kind: 'Concepto', to: `/knowledge/${c.id}` })
       for (const n of data.notes) if (matchesQuery(q, n.title, n.content, n.tags)) out.push({ id: n.id, label: n.title || 'Sin título', kind: 'Nota', to: `/notes/${n.id}` })
       for (const f of data.formulas) if (matchesQuery(q, f.name, f.tags)) out.push({ id: f.id, label: f.name, kind: 'Fórmula', to: `/workbench/formulas/${f.id}` })
+      const now = Date.now()
+      for (const e of data.events) {
+        if (!matchesQuery(q, e.title, e.notes, e.location, EventKindLabel[e.kind])) continue
+        const occ = nextOccurrence(e, now)
+        if (!occ) continue
+        out.push({
+          id: `${e.id}-${occ.startAt}`,
+          label: `${e.title} · ${e.allDay ? occ.dayKey : formatDateTime(occ.startAt)}`,
+          kind: EventKindLabel[e.kind],
+          to: `/calendar?day=${occ.dayKey}`,
+        })
+      }
+      for (const c of data.cards) {
+        if (!matchesQuery(q, c.front, c.back, c.tags)) continue
+        out.push({ id: c.id, label: c.front.slice(0, 80), kind: 'Tarjeta', to: '/review?tab=tarjetas' })
+      }
+      for (const x of data.exercises) {
+        if (!matchesQuery(q, x.prompt, x.topic, x.source, x.tags)) continue
+        out.push({ id: x.id, label: x.prompt.slice(0, 80), kind: 'Ejercicio', to: '/exercises' })
+      }
+      for (const d of data.datasets) if (matchesQuery(q, d.name, d.notes)) out.push({ id: d.id, label: d.name, kind: 'Serie de datos', to: `/workbench/data/${d.id}` })
+      for (const r of searchRefs(q)) out.push({ id: r.id, label: r.title, kind: r.section, to: `/workbench/refs?q=${encodeURIComponent(r.title)}` })
+      for (const r of data.reports) if (matchesQuery(q, r.title)) out.push({ id: r.id, label: r.title, kind: 'Informe', to: `/workbench/reports/${r.id}` })
+      for (const m of data.mistakes) if (matchesQuery(q, m.what, m.topic, m.kind)) out.push({ id: m.id, label: m.what.slice(0, 80), kind: 'Error', to: '/exercises/errores' })
+      for (const b of data.library) if (matchesQuery(q, b.title, b.author, b.tags)) out.push({ id: b.id, label: b.title, kind: 'Biblioteca', to: '/library' })
     }
     return out.slice(0, 40)
   }, [q, data])

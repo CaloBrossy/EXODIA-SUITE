@@ -5,19 +5,27 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet" />
     <meta name="theme-color" content="#06070f" />
-    <meta name="description" content="EXODIA — laboratorio personal de conocimiento y ciencia" />
-    <title>EXODIA</title>
-    <script>
-      try {
-        var t = localStorage.getItem('exodia.theme')
-        var dark = t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches
-        if (dark) document.documentElement.classList.add('dark')
-        if (localStorage.getItem('exodia.fx') === 'lite') document.documentElement.classList.add('fx-lite')
-      } catch (e) {}
-    </script>
+    <title>EXODIA — laboratorio personal de matemáticas, física y estudio</title>
+    <meta name="description" content="EXODIA es un laboratorio de estudio en el navegador: notas, matemáticas, física, pomodoro, repaso y ejercicios. Funciona sin conexión y la cuenta respalda los datos." />
+    <meta name="robots" content="index,follow" />
+    <meta property="og:title" content="EXODIA — laboratorio personal de matemáticas, física y estudio" />
+    <meta property="og:description" content="Notas, cálculo, física, pomodoro y repaso en un solo laboratorio. Los datos quedan en el dispositivo y se pueden respaldar con una cuenta." />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="es_AR" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="EXODIA — laboratorio personal de matemáticas, física y estudio" />
+    <meta name="twitter:description" content="Notas, cálculo, física, pomodoro y repaso. Funciona sin conexión." />
+    <script src="/boot.js"></script>
   </head>
   <body>
+    <noscript>
+      <h1>EXODIA — laboratorio personal de matemáticas, física y estudio</h1>
+      <p>Notas, cálculo, física, pomodoro, repaso y ejercicios en el navegador. Los datos quedan en el dispositivo.</p>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

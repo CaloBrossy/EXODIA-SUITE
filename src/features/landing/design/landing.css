@@ -1,0 +1,80 @@
+.exodia-landing {
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  background: #05070d;
+  color: #e6ecfa;
+}
+
+.exodia-landing .font-mono,
+.exodia-landing code,
+.exodia-landing pre {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.glass-panel {
+  background: rgba(11, 17, 36, 0.74);
+  border: 1px solid rgba(140, 160, 220, 0.13);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.glass-panel-subtle {
+  background: rgba(11, 17, 36, 0.45);
+  border: 1px solid rgba(140, 160, 220, 0.09);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.glass-panel-elevated {
+  background: rgba(11, 17, 36, 0.88);
+  border: 1px solid rgba(140, 160, 220, 0.18);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 20px 40px -15px rgba(5, 7, 13, 0.8);
+}
+
+@keyframes pulseSubtle {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.08); }
+}
+
+@keyframes driftSlow {
+  0% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(1deg); }
+  100% { transform: translateY(0) rotate(0deg); }
+}
+
+@keyframes landIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+.animate-drift { animation: driftSlow 14s ease-in-out infinite; }
+.animate-pulse-subtle { animation: pulseSubtle 4s ease-in-out infinite; }
+.exodia-landing .animate-in { animation: landIn 0.5s ease both; }
+
+.exodia-landing .active\:scale-98:active { transform: scale(0.98); }
+
+html.public-doc,
+html.public-doc body,
+html.public-doc #root {
+  height: auto;
+  min-height: 100%;
+}
+
+html.public-doc { scroll-behavior: smooth; }
+html.public-doc body { overflow-x: hidden; }
+
+html.public-doc:has(.exodia-landing),
+html.public-doc:has(.exodia-landing) body {
+  background: #05070d;
+  color: #e6ecfa;
+}
+
+html.public-doc:has(.exodia-landing)::-webkit-scrollbar { width: 6px; height: 6px; }
+html.public-doc:has(.exodia-landing)::-webkit-scrollbar-track { background: #05070d; }
+html.public-doc:has(.exodia-landing)::-webkit-scrollbar-thumb {
+  background: rgba(140, 160, 220, 0.22);
+  border-radius: 3px;
+}

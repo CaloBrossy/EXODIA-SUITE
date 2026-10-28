@@ -28,7 +28,7 @@ async function sh(cmd: string, args: string[], cwd: string, env: Record<string, 
 }
 
 function compare(output: string, tests: TestCase[]): string[] {
-  const lines = output.replace(/\r/g, '').trim().split('\n')
+  const lines = output.replace(/\r/g, '').replace(/\n+$/, '').split('\n')
   const problems: string[] = []
   if (lines.length !== tests.length) problems.push(`se esperaban ${tests.length} líneas y hubo ${lines.length}`)
   tests.forEach((t, i) => {
@@ -39,7 +39,12 @@ function compare(output: string, tests: TestCase[]): string[] {
       return
     }
     const v = t.expect.value
-    if (typeof v === 'number') {
+    if (Array.isArray(v)) {
+      const inner = got.replace(/^\[|\]$/g, '').trim()
+      const parts = inner === '' ? [] : inner.split(/[,\s]+/).map((x) => Number(x.trim()))
+      const ok = v.length === parts.length && v.every((x, i) => Number.isFinite(parts[i]) && Math.abs(parts[i]! - x) <= 1e-9 * Math.max(1, Math.abs(x)))
+      if (!ok) problems.push(`línea ${i + 1}: esperaba [${v.join(', ')}], obtuvo "${got}"`)
+    } else if (typeof v === 'number') {
       const n = Number(got)
       const ok = Number.isFinite(n) && Math.abs(n - v) <= 1e-9 * Math.max(1, Math.abs(v))
       if (!ok) problems.push(`línea ${i + 1}: esperaba ${v}, obtuvo "${got}"`)

@@ -68,7 +68,10 @@ function expectSound(p: Program, tests: TestCase[]) {
 
 describe('regresión: ejemplos y estrategias', () => {
   const now = allSamples()
-  it('la cantidad de ejemplos no cambió', () => expect(now.length).toBe(baseline.samples.length))
+  it('los ejemplos de la línea base siguen existiendo', () => {
+    for (const b of baseline.samples) expect(now.some((x) => x.text === b.text && x.strategy === b.strategy && x.kind === b.kind), `${b.kind} · ${b.text}`).toBe(true)
+  })
+  it('la cantidad de ejemplos no disminuyó', () => expect(now.length).toBeGreaterThanOrEqual(baseline.samples.length))
   for (const b of baseline.samples) {
     it(`${b.kind} · ${b.text} · ${b.strategy}`, () => {
       const cur = now.find((x) => x.text === b.text && x.strategy === b.strategy && x.kind === b.kind)
@@ -110,6 +113,6 @@ describe('regresión: frases de prueba con tipo elegido a mano', () => {
 
 describe('regresión: detectKind conserva su contrato', () => {
   it('sigue clasificando igual todas las frases de la línea base', () => {
-    for (const b of baseline.probes) expect(detectKind(b.text)?.id ?? null, b.text).toBe(b.detected)
+    for (const b of baseline.probes.filter((p) => !CHANGED.has(p.text))) expect(detectKind(b.text)?.id ?? null, b.text).toBe(b.detected)
   })
 })

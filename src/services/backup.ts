@@ -2,7 +2,17 @@ import { z } from 'zod'
 import { db, SCHEMA_VERSION, TABLE_NAMES, type TableName } from '@/db/db'
 import {
   CalculationSchema,
+  CalendarEventSchema,
+  CardReviewSchema,
+  CardSchema,
   ConceptSchema,
+  DatasetSchema,
+  ReportSchema,
+  ExamPlanSchema,
+  LibraryItemSchema,
+  MistakeSchema,
+  ExamRunSchema,
+  ExerciseSchema,
   DevProblemSchema,
   FormulaSchema,
   KvSchema,
@@ -32,6 +42,16 @@ const DataSchema = z.object({
   tools: z.array(ToolLinkSchema),
   kv: z.array(KvSchema),
   devProblems: z.array(DevProblemSchema).default([]),
+  events: z.array(CalendarEventSchema).default([]),
+  cards: z.array(CardSchema).default([]),
+  reviews: z.array(CardReviewSchema).default([]),
+  exercises: z.array(ExerciseSchema).default([]),
+  examRuns: z.array(ExamRunSchema).default([]),
+  datasets: z.array(DatasetSchema).default([]),
+  reports: z.array(ReportSchema).default([]),
+  examPlans: z.array(ExamPlanSchema).default([]),
+  mistakes: z.array(MistakeSchema).default([]),
+  libraryItems: z.array(LibraryItemSchema).default([]),
 })
 
 export const BackupSchema = z.object({
@@ -71,6 +91,20 @@ function migrateBackup(raw: unknown): unknown {
   }
   // v3 solo agrega la tabla devProblems, que el esquema completa con [] si falta.
   if (b.schemaVersion < 3) b.schemaVersion = 3
+  // v4 agrega events; el esquema completa con [] si falta.
+  if (b.schemaVersion < 4) b.schemaVersion = 4
+  // v5 agrega cards; el esquema completa con [] si falta.
+  if (b.schemaVersion < 5) b.schemaVersion = 5
+  // v6 agrega reviews; el esquema completa con [] si falta.
+  if (b.schemaVersion < 6) b.schemaVersion = 6
+  if (b.schemaVersion < 7) b.schemaVersion = 7
+  // v8 agrega datasets; el esquema completa con [] si falta.
+  if (b.schemaVersion < 8) b.schemaVersion = 8
+  // v9 agrega reports; el esquema completa con [] si falta.
+  if (b.schemaVersion < 9) b.schemaVersion = 9
+  if (b.schemaVersion < 10) b.schemaVersion = 10
+  if (b.schemaVersion < 11) b.schemaVersion = 11
+  if (b.schemaVersion < 12) b.schemaVersion = 12
   return b
 }
 
@@ -117,12 +151,16 @@ export function importData(backup: Backup, mode: ImportMode): Promise<void> {
   )
 }
 
-export function downloadJson(obj: unknown, filename: string): void {
-  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' })
+export function downloadFile(content: string, filename: string, mime: string): void {
+  const blob = new Blob([content], { type: mime })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
   a.download = filename
   a.click()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+export function downloadJson(obj: unknown, filename: string): void {
+  downloadFile(JSON.stringify(obj, null, 2), filename, 'application/json')
 }
