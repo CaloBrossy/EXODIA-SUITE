@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => ({
           react(),
           tailwindcss(),
           VitePWA({
-            registerType: 'prompt',
+            registerType: 'autoUpdate',
             injectRegister: false,
             includeAssets: ['favicon.svg'],
             manifest: {
@@ -36,6 +36,8 @@ export default defineConfig(({ mode }) => ({
               ],
             },
             workbox: {
+              skipWaiting: true,
+              clientsClaim: true,
               globPatterns: ['**/*.{js,css,html,svg,png,woff2,woff,ttf,webmanifest}'],
               maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
               navigateFallback: 'index.html',

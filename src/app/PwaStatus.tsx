@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useFeedback } from '@/components/feedback'
 import { Button } from '@/components/ui'
 
-/** Registra el service worker (solo en build de producción) y avisa de actualizaciones. */
+/** Registra el service worker. En producción la versión nueva reemplaza a la guardada. */
 export function PwaStatus() {
   const [update, setUpdate] = useState<null | ((reload?: boolean) => Promise<void>)>(null)
   const { notify } = useFeedback()

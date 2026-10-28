@@ -60,6 +60,7 @@ describe('runSymbolic — resto de operaciones', () => {
   })
   it('ecuación cuadrática y verificación', () => {
     expect(run({ op: 'solve', expr: 'x^2 - 5x + 6 = 0' }).result).toBe('x = 2; x = 3')
+    expect(run({ op: 'solve', expr: 'x^2 + 1 = 0' }).result).toMatch(/x = i; x = -i|x = -i; x = i/)
   })
   it('sistema 3×3', () => {
     expect(run({ op: 'solve', expr: 'x+y+z=6; x-y+z=2; x+y-z=0' }).result.replace(/\s/g, '')).toBe('x=1;y=2;z=3')
