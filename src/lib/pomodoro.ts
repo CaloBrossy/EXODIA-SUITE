@@ -86,6 +86,17 @@ export function reset(s: TimerState, cfg: PomodoroConfig): TimerState {
   return { ...s, status: 'idle', durationMs: d, remainingMs: d, endsAt: null, runId: null, startedAt: null }
 }
 
+/** Aplica la configuración al reloj en curso. Si está corriendo, el tiempo visible pasa a ser la nueva duración. */
+export function applyConfig(s: TimerState, cfg: PomodoroConfig, now: number): TimerState {
+  const d = phaseDuration(s.phase, cfg)
+  if (s.status === 'running') {
+    if (d === s.durationMs) return s
+    return { ...s, durationMs: d, remainingMs: d, endsAt: now + d }
+  }
+  if (s.status === 'paused' && d === s.durationMs) return s
+  return reset(s, cfg)
+}
+
 export function switchPhase(s: TimerState, phase: Phase, cfg: PomodoroConfig): TimerState {
   return reset({ ...s, phase }, cfg)
 }

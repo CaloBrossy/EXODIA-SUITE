@@ -5,6 +5,7 @@ import {
   DEFAULT_CONFIG,
   initialState,
   isExpired,
+  applyConfig,
   type CompletedSession,
   type PomodoroConfig,
   type TimerState,
@@ -112,11 +113,15 @@ export function validateConfig(c: PomodoroConfig): string | null {
 }
 
 export const saveConfig = (c: PomodoroConfig) =>
-  guard('No se pudo guardar la configuración', async () => {
-    const err = validateConfig(c)
-    if (err) throw new Error(err)
-    await db.kv.put({ key: CONFIG_KEY, value: c })
-  })
+  guard('No se pudo guardar la configuración', () =>
+    db.transaction('rw', db.kv, async () => {
+      const err = validateConfig(c)
+      if (err) throw new Error(err)
+      await db.kv.put({ key: CONFIG_KEY, value: c })
+      const s = await loadTimer()
+      await db.kv.put({ key: TIMER_KEY, value: applyConfig(s, c, Date.now()) })
+    }),
+  )
 
 export async function loadTimer(): Promise<TimerState> {
   const row = await db.kv.get(TIMER_KEY)

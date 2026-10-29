@@ -17,7 +17,7 @@ import { Tasks } from './Tasks'
 import { StudyStats } from './StudyStats'
 
 function PomodoroSettings() {
-  const { config, state } = usePomodoro()
+  const { config } = usePomodoro()
   const { fail, notify } = useFeedback()
   const [form, setForm] = useState<PomodoroConfig>(config)
   useEffect(() => setForm(config), [config.workMin, config.shortMin, config.longMin, config.longEvery, config.autoStartNext])
@@ -37,7 +37,7 @@ function PomodoroSettings() {
         e.preventDefault()
         try {
           await saveConfig(form)
-          notify(state.status === 'idle' ? 'Configuración guardada.' : 'Guardada. Se aplicará al reiniciar o en la próxima fase.', 'ok')
+          notify('Configuración guardada.', 'ok')
         } catch (x) {
           fail(x)
         }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { complete, DEFAULT_CONFIG, formatClock, initialState, isExpired, pause, progress, remaining, reset, start } from './pomodoro'
+import { complete, DEFAULT_CONFIG, formatClock, initialState, isExpired, pause, progress, remaining, reset, start, applyConfig } from './pomodoro'
 import { createSaveQueue } from './saveQueue'
 
 const cfg = DEFAULT_CONFIG
@@ -43,6 +43,13 @@ describe('pomodoro', () => {
     }
     expect(phases).toEqual(['work', 'short', 'work', 'short', 'work', 'short', 'work', 'long'])
     expect(s.completedWork).toBe(4)
+  })
+
+  it('al guardar, el reloj en reposo toma la nueva duración', () => {
+    const s = initialState(cfg)
+    const next = applyConfig(s, { ...cfg, workMin: 40 }, 0)
+    expect(next.remainingMs).toBe(40 * MIN)
+    expect(next.status).toBe('idle')
   })
 
   it('formatea el reloj', () => {

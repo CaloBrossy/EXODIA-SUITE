@@ -23,9 +23,12 @@ export function requestNotificationPermission(): void {
 
 /** Estado compartido del Pomodoro (persistido en IndexedDB, sincronizado entre vistas y pestañas). */
 export function usePomodoro() {
-  const row = useLiveQuery(() => db.kv.bulkGet(['pomodoro.state', 'pomodoro.config']), [])
-  const config: PomodoroConfig = { ...DEFAULT_CONFIG, ...((row?.[1]?.value as Partial<PomodoroConfig>) ?? {}) }
-  const state: TimerState = (row?.[0]?.value as TimerState | undefined) ?? initialState(config)
+  const row = useLiveQuery(async () => {
+    const [state, config] = await Promise.all([db.kv.get('pomodoro.state'), db.kv.get('pomodoro.config')])
+    return { state, config }
+  }, [])
+  const config: PomodoroConfig = { ...DEFAULT_CONFIG, ...((row?.config?.value as Partial<PomodoroConfig>) ?? {}) }
+  const state: TimerState = (row?.state?.value as TimerState | undefined) ?? initialState(config)
   const now = useNow(state.status === 'running')
 
   const act = useCallback((fn: (s: TimerState, c: PomodoroConfig) => TimerState) => updateTimer(fn), [])
