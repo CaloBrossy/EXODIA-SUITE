@@ -5,7 +5,7 @@ import { createNote, deleteNote, filterNotes, listNotes, updateNote } from './no
 import { deleteConcept, emptyConcept, saveConcept } from './concepts'
 import { emptyFormula, evaluateFormula, saveFormula, validateEvalExpression } from './formulas'
 import { exportData, importData, parseBackup } from './backup'
-import { isMissingRelation, mapLocalToRemote, mapRemoteToLocal, mergeRows, takeRemote } from './sync'
+import { dropTombed, isMissingRelation, isUntouchedSeed, mapLocalToRemote, mapRemoteToLocal, mergeRows, reconcilePlan, takeRemote } from './sync'
 import { deleteEvent, listStudyBlocks, LOAD_HOURS_KEY, replaceStudyPlan, saveEvent, SUBJECT_COLORS_KEY, writeLoadHours, writeSubjectColor } from './calendar'
 import { applyReview, deleteCard, listCardsByOrigin, NEW_LIMIT_KEY, saveCard, writeNewLimit } from './cards'
 import { recordAttempt, saveExercise } from './exercises'
@@ -403,5 +403,20 @@ describe('sync a supabase', () => {
     expect(local.devProblems[0]).toMatchObject({ id: 'p1', title: 'Suma', revealed: 2, mode: 'guided' })
     expect(local.events).toEqual([])
     expect(local.cards).toEqual([])
+  })
+  it('con datos propios sube la cuenta y un borrado no vuelve', async () => {
+    expect(reconcilePlan(true, null, 'u')).toBe('sync')
+    expect(reconcilePlan(false, null, 'u')).toBe('pull')
+    expect(reconcilePlan(true, 'otra', 'u')).toBe('conflict')
+    expect(isUntouchedSeed({ seed: true, createdAt: 1, updatedAt: 1 })).toBe(true)
+    expect(isUntouchedSeed({ seed: true, createdAt: 1, updatedAt: 2 })).toBe(false)
+    const tombs = [{ table: 'notes', id: 'n1', at: 50 }]
+    const dropped = dropTombed([{ id: 'n1', updatedAt: 40 }, { id: 'n2', updatedAt: 10 }], 'notes', tombs, (r) => r.updatedAt)
+    expect(dropped.rows.map((r) => r.id)).toEqual(['n2'])
+    const newer = dropTombed([{ id: 'n1', updatedAt: 80 }], 'notes', tombs, (r) => r.updatedAt)
+    expect(newer.rows).toHaveLength(1)
+    expect(newer.tombs).toEqual([])
+    const task = mapLocalToRemote({ ...(await exportData()).data, tasks: [{ id: 't', title: 'TP', details: '', priority: 'medium', subjectId: null, project: '', done: true, dueDate: null, createdAt: 10, updatedAt: 40, completedAt: 40 }] }, 'u')
+    expect(task.tasks[0]).toMatchObject({ updated_at: new Date(40).toISOString(), done: true })
   })
 })

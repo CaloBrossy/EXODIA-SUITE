@@ -692,16 +692,19 @@ export type Database = {
       kv: {
         Row: {
           key: string
+          updated_at: string
           user_id: string
           value: Json
         }
         Insert: {
           key: string
+          updated_at?: string
           user_id?: string
           value: Json
         }
         Update: {
           key?: string
+          updated_at?: string
           user_id?: string
           value?: Json
         }
@@ -770,6 +773,7 @@ export type Database = {
           resolved: boolean
           resolved_at: string | null
           text: string
+          updated_at: string
           user_id: string
         }
         Insert: {
@@ -781,6 +785,7 @@ export type Database = {
           resolved?: boolean
           resolved_at?: string | null
           text: string
+          updated_at?: string
           user_id?: string
         }
         Update: {
@@ -792,6 +797,7 @@ export type Database = {
           resolved?: boolean
           resolved_at?: string | null
           text?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -943,6 +949,7 @@ export type Database = {
           project: string
           subject_id: string | null
           title: string
+          updated_at: string
           user_id: string
         }
         Insert: {
@@ -956,6 +963,7 @@ export type Database = {
           project?: string
           subject_id?: string | null
           title: string
+          updated_at?: string
           user_id?: string
         }
         Update: {
@@ -969,6 +977,7 @@ export type Database = {
           project?: string
           subject_id?: string | null
           title?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -988,6 +997,7 @@ export type Database = {
           name: string
           seed: boolean
           sort_order: number
+          updated_at: string
           url: string
           user_id: string
         }
@@ -997,6 +1007,7 @@ export type Database = {
           name: string
           seed?: boolean
           sort_order?: number
+          updated_at?: string
           url: string
           user_id?: string
         }
@@ -1006,6 +1017,7 @@ export type Database = {
           name?: string
           seed?: boolean
           sort_order?: number
+          updated_at?: string
           url?: string
           user_id?: string
         }

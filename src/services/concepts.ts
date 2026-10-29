@@ -22,14 +22,18 @@ export const emptyConcept = (): ConceptInput => ({
 async function syncRelations(id: string, before: string[], after: string[]): Promise<void> {
   const added = after.filter((x) => !before.includes(x))
   const removed = before.filter((x) => !after.includes(x))
+  const now = Date.now()
   for (const other of added) {
     await db.concepts.where('id').equals(other).modify((c) => {
-      if (!c.relatedIds.includes(id)) c.relatedIds.push(id)
+      if (c.relatedIds.includes(id)) return
+      c.relatedIds.push(id)
+      c.updatedAt = now
     })
   }
   for (const other of removed) {
     await db.concepts.where('id').equals(other).modify((c) => {
       c.relatedIds = c.relatedIds.filter((x) => x !== id)
+      c.updatedAt = now
     })
   }
 }
@@ -64,15 +68,22 @@ export function deleteConcept(id: string): Promise<void> {
       const c = await db.concepts.get(id)
       if (!c) return
       await syncRelations(id, c.relatedIds, [])
+      const now = Date.now()
       await db.notes.toCollection().modify((n) => {
+        if (!n.conceptIds.includes(id)) return
         n.conceptIds = n.conceptIds.filter((x) => x !== id)
+        n.updatedAt = now
       })
       await db.formulas.toCollection().modify((f) => {
+        if (!f.conceptIds.includes(id)) return
         f.conceptIds = f.conceptIds.filter((x) => x !== id)
+        f.updatedAt = now
       })
-      await db.questions.where('conceptId').equals(id).modify({ conceptId: null })
+      await db.questions.where('conceptId').equals(id).modify({ conceptId: null, updatedAt: now })
       await db.exercises.toCollection().modify((e) => {
+        if (!e.conceptIds.includes(id)) return
         e.conceptIds = e.conceptIds.filter((x) => x !== id)
+        e.updatedAt = now
       })
       await db.concepts.delete(id)
     }),

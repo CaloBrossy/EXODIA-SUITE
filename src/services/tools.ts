@@ -15,6 +15,7 @@ export function saveTool(input: Pick<ToolLink, 'name' | 'url' | 'description'>, 
       url: input.url.trim(),
       id: existing?.id ?? uid(),
       order: existing?.order ?? maxOrder + 1,
+      updatedAt: Date.now(),
     })
     if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'Datos inválidos')
     await db.tools.put(parsed.data)
@@ -38,8 +39,9 @@ export function moveTool(list: ToolLink[], id: string, dir: -1 | 1): Promise<voi
     const b = list[j]
     if (!a || !b) return
     await db.transaction('rw', db.tools, async () => {
-      await db.tools.update(a.id, { order: b.order })
-      await db.tools.update(b.id, { order: a.order })
+      const now = Date.now()
+      await db.tools.update(a.id, { order: b.order, updatedAt: now })
+      await db.tools.update(b.id, { order: a.order, updatedAt: now })
     })
   })
 }

@@ -20,17 +20,18 @@ export type TaskInput = Pick<Task, 'title' | 'details' | 'priority' | 'subjectId
 export function createTask(input: TaskInput): Promise<Task> {
   return guard('No se pudo crear la tarea', async () => {
     if (!input.title.trim()) throw new Error('La tarea necesita un título')
-    const t: Task = { ...input, title: input.title.trim(), id: uid(), done: false, createdAt: Date.now(), completedAt: null }
+    const now = Date.now()
+    const t: Task = { ...input, title: input.title.trim(), id: uid(), done: false, createdAt: now, updatedAt: now, completedAt: null }
     await db.tasks.add(t)
     return t
   })
 }
 
 export const updateTask = (id: string, changes: Partial<TaskInput>) =>
-  guard('No se pudo actualizar la tarea', () => db.tasks.update(id, changes))
+  guard('No se pudo actualizar la tarea', () => db.tasks.update(id, { ...changes, updatedAt: Date.now() }))
 
 export const setTaskDone = (t: Task, done: boolean) =>
-  guard('No se pudo actualizar la tarea', () => db.tasks.update(t.id, { done, completedAt: done ? Date.now() : null }))
+  guard('No se pudo actualizar la tarea', () => db.tasks.update(t.id, { done, completedAt: done ? Date.now() : null, updatedAt: Date.now() }))
 
 export const deleteTask = (id: string) => guard('No se pudo eliminar la tarea', () => db.tasks.delete(id))
 
@@ -74,17 +75,19 @@ export function saveSubject(input: SubjectInput, id?: string): Promise<string> {
 export function deleteSubject(id: string): Promise<void> {
   return guard('No se pudo eliminar la materia', () =>
     db.transaction('rw', [db.subjects, db.tasks, db.notes, db.sessions, db.events, db.cards, db.exercises, db.datasets, db.reports, db.examPlans, db.mistakes, db.libraryItems], async () => {
-      await db.datasets.where('subjectId').equals(id).modify({ subjectId: null })
-      await db.reports.where('subjectId').equals(id).modify({ subjectId: null })
-      await db.examPlans.where('subjectId').equals(id).modify({ subjectId: null })
-      await db.mistakes.where('subjectId').equals(id).modify({ subjectId: null })
-      await db.libraryItems.where('subjectId').equals(id).modify({ subjectId: null })
-      await db.tasks.where('subjectId').equals(id).modify({ subjectId: null })
-      await db.notes.where('subjectId').equals(id).modify({ subjectId: null })
+      const now = Date.now()
+      const clear = { subjectId: null, updatedAt: now }
+      await db.datasets.where('subjectId').equals(id).modify(clear)
+      await db.reports.where('subjectId').equals(id).modify(clear)
+      await db.examPlans.where('subjectId').equals(id).modify(clear)
+      await db.mistakes.where('subjectId').equals(id).modify(clear)
+      await db.libraryItems.where('subjectId').equals(id).modify(clear)
+      await db.tasks.where('subjectId').equals(id).modify(clear)
+      await db.notes.where('subjectId').equals(id).modify(clear)
       await db.sessions.where('subjectId').equals(id).modify({ subjectId: null })
-      await db.events.where('subjectId').equals(id).modify({ subjectId: null })
-      await db.cards.where('subjectId').equals(id).modify({ subjectId: null })
-      await db.exercises.where('subjectId').equals(id).modify({ subjectId: null })
+      await db.events.where('subjectId').equals(id).modify(clear)
+      await db.cards.where('subjectId').equals(id).modify(clear)
+      await db.exercises.where('subjectId').equals(id).modify(clear)
       await db.subjects.delete(id)
       await db.subjects.toCollection().modify((s) => {
         if (s.plan && (s.plan.requiresCourse.includes(id) || s.plan.requiresExam.includes(id))) {

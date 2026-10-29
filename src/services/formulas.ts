@@ -88,8 +88,11 @@ export function saveFormula(input: FormulaInput, id?: string): Promise<string> {
 export function deleteFormula(id: string): Promise<void> {
   return guard('No se pudo eliminar la fórmula', () =>
     db.transaction('rw', db.formulas, db.notes, async () => {
+      const now = Date.now()
       await db.notes.toCollection().modify((n) => {
+        if (!n.formulaIds.includes(id)) return
         n.formulaIds = n.formulaIds.filter((x) => x !== id)
+        n.updatedAt = now
       })
       await db.formulas.delete(id)
     }),

@@ -80,6 +80,7 @@ export const QuestionSchema = z.object({
   conceptId: optionalId,
   noteId: optionalId,
   createdAt: ts,
+  updatedAt: ts.optional(),
   resolvedAt: ts.nullable().optional(),
 })
 export type Question = z.infer<typeof QuestionSchema>
@@ -103,6 +104,7 @@ export const TaskSchema = z.object({
   done: z.boolean(),
   dueDate: z.string().max(20).nullable().optional(),
   createdAt: ts,
+  updatedAt: ts.optional(),
   completedAt: ts.nullable().optional(),
 })
 export type Task = z.infer<typeof TaskSchema>
@@ -192,10 +194,11 @@ export const ToolLinkSchema = z.object({
   description: z.string().max(2000),
   order: z.number(),
   seed: z.boolean().optional(),
+  updatedAt: ts.optional(),
 })
 export type ToolLink = z.infer<typeof ToolLinkSchema>
 
-export const KvSchema = z.object({ key: z.string().min(1).max(200), value: z.unknown() })
+export const KvSchema = z.object({ key: z.string().min(1).max(200), value: z.unknown(), updatedAt: ts.optional() })
 export type KvEntry = z.infer<typeof KvSchema>
 
 export const EVENT_KINDS = ['clase', 'parcial', 'entrega', 'final', 'laboratorio', 'estudio', 'otro'] as const

@@ -43,6 +43,7 @@ import { exportData, importData } from './backup'
 import { guard, StorageError } from './errors'
 
 export const SYNC_USER_KEY = 'sync.lastUserId'
+export const TOMB_KEY = 'sync.tombstones'
 type Tables = Database['public']['Tables']
 type Row<T extends keyof Tables> = Tables[T]['Row']
 
@@ -133,6 +134,7 @@ export function mapLocalToRemote(data: Backup['data'], userId: string) {
       concept_id: fk(q.conceptId, concepts),
       note_id: fk(q.noteId, notes),
       created_at: iso(q.createdAt),
+      updated_at: iso(q.updatedAt ?? q.createdAt),
       resolved_at: isoOpt(q.resolvedAt),
     })),
     calculations: data.calculations.map((c) => ({
@@ -154,6 +156,7 @@ export function mapLocalToRemote(data: Backup['data'], userId: string) {
       done: t.done,
       due_date: t.dueDate ?? null,
       created_at: iso(t.createdAt),
+      updated_at: iso(t.updatedAt ?? t.createdAt),
       completed_at: isoOpt(t.completedAt),
     })),
     sessions: data.sessions.map((s) => ({
@@ -183,8 +186,9 @@ export function mapLocalToRemote(data: Backup['data'], userId: string) {
       description: t.description,
       sort_order: t.order,
       seed: !!t.seed,
+      updated_at: iso(t.updatedAt ?? 0),
     })),
-    kv: data.kv.map((k) => ({ key: k.key, user_id: userId, value: k.value as Json })),
+    kv: data.kv.map((k) => ({ key: k.key, user_id: userId, value: k.value as Json, updated_at: iso(k.updatedAt ?? 0) })),
     events: data.events.map((e) => ({
       id: e.id,
       user_id: userId,
@@ -410,15 +414,26 @@ async function upsert<T extends (typeof ORDER)[number]>(
   }
 }
 
-export async function pushLocalToSupabase(): Promise<Record<(typeof ORDER)[number], number>> {
+export function isUntouchedSeed(row: { seed?: boolean; createdAt?: number; updatedAt?: number }): boolean {
+  return !!row.seed && row.createdAt != null && row.createdAt === row.updatedAt
+}
+
+export async function pushLocalToSupabase(opts?: { skipUntouchedSeeds?: boolean }): Promise<Record<(typeof ORDER)[number], number>> {
   return guard('No se pudo subir a Supabase', async () => {
     skippedRelations = []
     const uid = await currentUserId()
     const data = (await exportData()).data
+    if (opts?.skipUntouchedSeeds) {
+      data.subjects = data.subjects.filter((r) => !isUntouchedSeed(r))
+      data.concepts = data.concepts.filter((r) => !isUntouchedSeed(r))
+      data.formulas = data.formulas.filter((r) => !isUntouchedSeed(r))
+      data.tools = data.tools.filter((r) => !r.seed || (r.updatedAt ?? 0) > 0)
+    }
     data.kv = data.kv.filter((k) => k.key !== SYNC_USER_KEY)
     const remote = mapLocalToRemote(data, uid)
     for (const table of ORDER) await upsert(table, remote[table])
-    await db.kv.put({ key: SYNC_USER_KEY, value: uid })
+    await deleteTombed()
+    await muted(() => db.kv.put({ key: SYNC_USER_KEY, value: uid }))
     setConflict(false)
     return Object.fromEntries(ORDER.map((t) => [t, remote[t].length])) as Record<(typeof ORDER)[number], number>
   })
@@ -553,18 +568,18 @@ export function mapRemoteToLocal(rows: {
       id: n.id, title: n.title, content: n.content, tags: strs(n.tags), favorite: n.favorite, conceptIds: strs(n.concept_ids), formulaIds: strs(n.formula_ids), calculationIds: strs(n.calculation_ids), subjectId: n.subject_id, createdAt: ms(n.created_at), updatedAt: ms(n.updated_at),
     })),
     questions: rows.questions.map((q) => ({
-      id: q.id, text: q.text, resolved: q.resolved, answer: q.answer, conceptId: q.concept_id, noteId: q.note_id, createdAt: ms(q.created_at), resolvedAt: q.resolved_at ? ms(q.resolved_at) : null,
+      id: q.id, text: q.text, resolved: q.resolved, answer: q.answer, conceptId: q.concept_id, noteId: q.note_id, createdAt: ms(q.created_at), updatedAt: ms(q.updated_at), resolvedAt: q.resolved_at ? ms(q.resolved_at) : null,
     })),
     calculations: rows.calculations.map((c) => ({ id: c.id, kind: c.kind, input: c.input, result: c.result, createdAt: ms(c.created_at) })),
     tasks: rows.tasks.map((t) => ({
-      id: t.id, title: t.title, details: t.details, priority: priority(t.priority), subjectId: t.subject_id, project: t.project, done: t.done, dueDate: t.due_date, createdAt: ms(t.created_at), completedAt: t.completed_at ? ms(t.completed_at) : null,
+      id: t.id, title: t.title, details: t.details, priority: priority(t.priority), subjectId: t.subject_id, project: t.project, done: t.done, dueDate: t.due_date, createdAt: ms(t.created_at), updatedAt: ms(t.updated_at), completedAt: t.completed_at ? ms(t.completed_at) : null,
     })),
     sessions: rows.sessions.flatMap((s) => (s.phase === 'work' || s.phase === 'short' || s.phase === 'long' ? [{
       id: s.id, phase: s.phase, startedAt: ms(s.started_at), endedAt: ms(s.ended_at), durationMs: s.duration_ms, taskId: s.task_id, subjectId: s.subject_id,
     }] : [])),
     sketches: rows.sketches.map((s) => ({ id: s.id, title: s.title, strokes: strokes(s.strokes), background: s.background, createdAt: ms(s.created_at), updatedAt: ms(s.updated_at) })),
-    tools: rows.tools.map((t) => ({ id: t.id, name: t.name, url: t.url, description: t.description, order: t.sort_order, seed: t.seed })),
-    kv: rows.kv.filter((k) => k.key !== SYNC_USER_KEY).map((k) => ({ key: k.key, value: k.value })),
+    tools: rows.tools.map((t) => ({ id: t.id, name: t.name, url: t.url, description: t.description, order: t.sort_order, seed: t.seed, updatedAt: ms(t.updated_at) })),
+    kv: rows.kv.filter((k) => k.key !== SYNC_USER_KEY).map((k) => ({ key: k.key, value: k.value, updatedAt: ms(k.updated_at) })),
     events: rows.events.flatMap((e) => {
       const kind = eventKind(e.kind)
       const repeat = eventRepeat(e.repeat)
@@ -744,18 +759,18 @@ const stampOf = {
   concepts: (r: Concept) => r.updatedAt,
   formulas: (r: Formula) => r.updatedAt,
   notes: (r: Note) => r.updatedAt,
-  questions: (r: Question) => r.createdAt,
+  questions: (r: Question) => r.updatedAt ?? r.createdAt,
   calculations: (r: Calculation) => r.createdAt,
-  tasks: (r: Task) => r.createdAt,
+  tasks: (r: Task) => r.updatedAt ?? r.createdAt,
   sessions: (r: FocusSession) => r.endedAt,
   sketches: (r: Sketch) => r.updatedAt,
-  tools: (_r: ToolLink) => 0,
-  kv: (_r: KvEntry) => 0,
+  tools: (r: ToolLink) => r.updatedAt ?? 0,
+  kv: (r: KvEntry) => r.updatedAt ?? 0,
   events: (r: CalendarEvent) => r.updatedAt,
   cards: (r: Card) => r.updatedAt,
   reviews: (r: CardReview) => r.at,
   exercises: (r: Exercise) => r.updatedAt,
-  examRuns: (r: ExamRun) => r.startedAt,
+  examRuns: (r: ExamRun) => r.endedAt ?? r.startedAt,
   devProblems: (r: DevProblem) => r.updatedAt,
   datasets: (r: Dataset) => r.updatedAt,
   reports: (r: Report) => r.updatedAt,
@@ -763,6 +778,106 @@ const stampOf = {
   mistakes: (r: Mistake) => r.updatedAt,
   libraryItems: (r: LibraryItem) => r.updatedAt,
 } as const
+
+export type Tombstone = { table: string; id: string; at: number }
+
+const REMOTE_OF: Record<string, (typeof ORDER)[number]> = {
+  subjects: 'subjects', concepts: 'concepts', formulas: 'formulas', notes: 'notes', questions: 'questions', calculations: 'calculations', tasks: 'tasks', sessions: 'sessions', sketches: 'sketches', tools: 'tools', events: 'events', cards: 'cards', reviews: 'card_reviews', exercises: 'exercises', examRuns: 'exam_runs', devProblems: 'dev_problems', datasets: 'datasets', reports: 'reports', examPlans: 'exam_plans', mistakes: 'mistakes', libraryItems: 'library_items',
+}
+
+export function unionTombs(a: Tombstone[], b: Tombstone[]): Tombstone[] {
+  const map = new Map<string, Tombstone>()
+  for (const t of [...a, ...b]) {
+    if (!t || typeof t.table !== 'string' || typeof t.id !== 'string' || typeof t.at !== 'number') continue
+    const key = `${t.table}\0${t.id}`
+    const prev = map.get(key)
+    if (!prev || t.at > prev.at) map.set(key, t)
+  }
+  return [...map.values()]
+}
+
+export function tombsFromKv(kv: { key: string; value: unknown }[]): Tombstone[] {
+  const row = kv.find((k) => k.key === TOMB_KEY)
+  return Array.isArray(row?.value) ? unionTombs(row.value as Tombstone[], []) : []
+}
+
+export function dropTombed<T extends { id: string }>(rows: T[], table: string, tombs: Tombstone[], stamp: (row: T) => number): { rows: T[]; tombs: Tombstone[] } {
+  const mine = new Map(tombs.filter((t) => t.table === table).map((t) => [t.id, t]))
+  const rest = tombs.filter((t) => t.table !== table)
+  const kept = rows.filter((row) => {
+    const tomb = mine.get(row.id)
+    if (!tomb) return true
+    if (stamp(row) > tomb.at) {
+      mine.delete(row.id)
+      return true
+    }
+    return false
+  })
+  return { rows: kept, tombs: rest.concat([...mine.values()]) }
+}
+
+function applyTombs(data: Backup['data'], tombs: Tombstone[]): Backup['data'] {
+  let left = tombs
+  const take = <T extends { id: string }>(table: string, rows: T[], stamp: (row: T) => number) => {
+    const out = dropTombed(rows, table, left, stamp)
+    left = out.tombs
+    return out.rows
+  }
+  const next: Backup['data'] = {
+    ...data,
+    subjects: take('subjects', data.subjects, stampOf.subjects),
+    concepts: take('concepts', data.concepts, stampOf.concepts),
+    formulas: take('formulas', data.formulas, stampOf.formulas),
+    notes: take('notes', data.notes, stampOf.notes),
+    questions: take('questions', data.questions, stampOf.questions),
+    calculations: take('calculations', data.calculations, stampOf.calculations),
+    tasks: take('tasks', data.tasks, stampOf.tasks),
+    sessions: take('sessions', data.sessions, stampOf.sessions),
+    sketches: take('sketches', data.sketches, stampOf.sketches),
+    tools: take('tools', data.tools, stampOf.tools),
+    events: take('events', data.events, stampOf.events),
+    cards: take('cards', data.cards, stampOf.cards),
+    reviews: take('reviews', data.reviews, stampOf.reviews),
+    exercises: take('exercises', data.exercises, stampOf.exercises),
+    examRuns: take('examRuns', data.examRuns, stampOf.examRuns),
+    devProblems: take('devProblems', data.devProblems, stampOf.devProblems),
+    datasets: take('datasets', data.datasets, stampOf.datasets),
+    reports: take('reports', data.reports, stampOf.reports),
+    examPlans: take('examPlans', data.examPlans, stampOf.examPlans),
+    mistakes: take('mistakes', data.mistakes, stampOf.mistakes),
+    libraryItems: take('libraryItems', data.libraryItems, stampOf.libraryItems),
+  }
+  next.kv = data.kv.filter((k) => k.key !== TOMB_KEY).concat(left.length ? [{ key: TOMB_KEY, value: left }] : [])
+  return next
+}
+
+let writingRemote = 0
+function muted<T>(fn: () => Promise<T>): Promise<T> {
+  writingRemote++
+  return fn().finally(() => {
+    writingRemote--
+  })
+}
+
+async function deleteTombed(): Promise<void> {
+  if (!supabase) return
+  const tombs = tombsFromKv((await exportData()).data.kv)
+  const byTable = new Map<(typeof ORDER)[number], string[]>()
+  for (const t of tombs) {
+    const remote = REMOTE_OF[t.table]
+    if (!remote) continue
+    const ids = byTable.get(remote) ?? []
+    ids.push(t.id)
+    byTable.set(remote, ids)
+  }
+  for (const [table, ids] of byTable) {
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const { error } = await supabase.from(table).delete().in('id', ids.slice(i, i + CHUNK))
+      if (error && isMissingRelation(error)) skippedRelations.push(table)
+      else if (error) throw new StorageError(`No se pudo borrar en ${table}: ${error.message}`, error)
+    }
+  }
+}
 
 async function currentUserId(): Promise<string> {
   if (!supabase) throw new StorageError('Supabase no está configurado. Reiniciá el servidor de desarrollo.')
@@ -801,7 +916,7 @@ async function hasPersonalData(): Promise<boolean> {
     db.formulas.filter((f) => !f.seed).count(),
     db.subjects.filter((s) => !s.seed).count(),
     db.tools.filter((t) => !t.seed).count(),
-    db.kv.filter((k) => k.key !== SYNC_USER_KEY).count(),
+    db.kv.filter((k) => k.key !== SYNC_USER_KEY && k.key !== TOMB_KEY).count(),
   ])
   return concepts + formulas + subjects + tools + kv > 0
 }
@@ -860,7 +975,8 @@ export async function pullRemoteToLocal(mode: PullMode = 'merge'): Promise<numbe
       mistakes: mergeRows(local.mistakes, remote.mistakes, stampOf.mistakes, mode),
       libraryItems: mergeRows(local.libraryItems, remote.libraryItems, stampOf.libraryItems, mode),
     }
-    await importData({ app: 'exodia', schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), data: next }, 'replace')
+    const cleaned = applyTombs(next, unionTombs(tombsFromKv(local.kv), tombsFromKv(remote.kv)))
+    await muted(() => importData({ app: 'exodia', schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), data: cleaned }, 'replace'))
     setConflict(false)
     return TABLE_NAMES.reduce((n, t) => n + remote[t].length, 0)
   })
@@ -874,7 +990,9 @@ export async function replaceLocalWithRemote(): Promise<number> {
     const total = TABLE_NAMES.reduce((n, t) => n + remote[t].length, 0)
     if (total === 0) throw new StorageError('La nube de esta cuenta está vacía. No se borraron los datos de este dispositivo.')
     remote.kv = remote.kv.filter((k) => k.key !== SYNC_USER_KEY).concat([{ key: SYNC_USER_KEY, value: uid }])
-    await importData({ app: 'exodia', schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), data: remote }, 'replace')
+    const cleaned = applyTombs(remote, tombsFromKv(remote.kv))
+    cleaned.kv = cleaned.kv.filter((k) => k.key !== SYNC_USER_KEY).concat([{ key: SYNC_USER_KEY, value: uid }])
+    await muted(() => importData({ app: 'exodia', schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), data: cleaned }, 'replace'))
     setConflict(false)
     return total
   })
@@ -906,21 +1024,104 @@ export function reconcileSession(uid: string): Promise<ReconcileResult> {
   return reconcileFlight
 }
 
+export type ReconcilePlan = 'conflict' | 'pull' | 'sync'
+
+export function reconcilePlan(personal: boolean, markerId: string | null, uid: string): ReconcilePlan {
+  if (markerId && markerId !== uid && personal) return 'conflict'
+  if (!personal) return 'pull'
+  return 'sync'
+}
+
 async function runReconcile(uid: string): Promise<ReconcileResult> {
   if (!supabase) return 'skipped'
   await db.open()
   const marker = await db.kv.get(SYNC_USER_KEY)
   const markerId = typeof marker?.value === 'string' ? marker.value : null
   const personal = await hasPersonalData()
-  if (markerId && markerId !== uid && personal) {
+  const plan = reconcilePlan(personal, markerId, uid)
+  if (plan === 'conflict') {
     setConflict(true)
     return 'conflict'
   }
   setConflict(false)
-  if (!personal) {
+  if (plan === 'pull') {
     await pullRemoteToLocal('remote-wins')
     return 'pulled'
   }
-  if (!markerId) await db.kv.put({ key: SYNC_USER_KEY, value: uid })
+  await pullRemoteToLocal('merge')
+  await pushLocalToSupabase({ skipUntouchedSeeds: true })
   return 'same'
+}
+
+let activeUid: string | null = null
+let syncTimer: ReturnType<typeof setTimeout> | undefined
+let tombChain: Promise<unknown> = Promise.resolve()
+
+export function bindAccountSync(uid: string | null): void {
+  activeUid = uid
+  if (!uid && syncTimer) {
+    clearTimeout(syncTimer)
+    syncTimer = undefined
+  }
+}
+
+function scheduleAccountSync(): void {
+  if (!activeUid || !supabase) return
+  if (syncTimer) clearTimeout(syncTimer)
+  const uid = activeUid
+  syncTimer = setTimeout(() => {
+    syncTimer = undefined
+    if (activeUid === uid) void reconcileSession(uid)
+  }, 1500)
+}
+
+function rememberTombs(table: string, ids: string[]): Promise<unknown> {
+  tombChain = tombChain.then(() => muted(async () => {
+    const cur = await db.kv.get(TOMB_KEY)
+    const prev = tombsFromKv([{ key: TOMB_KEY, value: cur?.value }])
+    const at = Date.now()
+    const next = prev.filter((t) => !(t.table === table && ids.includes(t.id)))
+    for (const id of ids) next.push({ table, id, at })
+    await db.kv.put({ key: TOMB_KEY, value: next.slice(-800) })
+  })).catch(() => undefined)
+  return tombChain
+}
+
+db.use({
+  stack: 'dbcore',
+  name: 'account-sync',
+  create(down) {
+    return {
+      ...down,
+      table(name: string) {
+        const table = down.table(name)
+        return {
+          ...table,
+          mutate(req) {
+            const change = req as { type: string; keys?: readonly unknown[]; values?: { key?: string; updatedAt?: number }[] }
+            if (!writingRemote && name === 'kv' && (change.type === 'put' || change.type === 'add')) {
+              const now = Date.now()
+              for (const row of change.values ?? []) {
+                if (row && row.key !== SYNC_USER_KEY && row.key !== TOMB_KEY) row.updatedAt = now
+              }
+            }
+            const result = table.mutate(req)
+            const keys = change.type === 'delete' ? (change.keys ?? []).map((k) => String(k)) : []
+            void result.then(() => {
+              if (writingRemote || !activeUid) return
+              if (name !== 'kv' && keys.length) void rememberTombs(name, keys).then(() => scheduleAccountSync())
+              else scheduleAccountSync()
+            })
+            return result
+          },
+        }
+      },
+    }
+  },
+})
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && activeUid) void reconcileSession(activeUid)
+  })
 }

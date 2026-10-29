@@ -39,7 +39,7 @@ export const getNote = (id: string) => db.notes.get(id)
 export function deleteNote(id: string): Promise<void> {
   return guard('No se pudo eliminar la nota', () =>
     db.transaction('rw', db.notes, db.questions, async () => {
-      await db.questions.where('noteId').equals(id).modify({ noteId: null })
+      await db.questions.where('noteId').equals(id).modify({ noteId: null, updatedAt: Date.now() })
       await db.notes.delete(id)
     }),
   )

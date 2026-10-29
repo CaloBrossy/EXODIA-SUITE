@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { authErrorMessage, authLockRemaining, clearAuthFailures, normalizeEmail, noteAuthFailure, rememberOAuthReturn, signupPasswordIssue } from '@/lib/authPolicy'
 import { StorageError } from '@/services/errors'
-import { reconcileSession } from '@/services/sync'
+import { bindAccountSync, reconcileSession } from '@/services/sync'
 
 interface AuthApi {
   configured: boolean
@@ -27,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data } = supabase.auth.onAuthStateChange((event, next) => {
       setSession(next)
       setRestoring(false)
+      bindAccountSync(next?.user.id ?? null)
       if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && next) void reconcileSession(next.user.id)
     })
     return () => data.subscription.unsubscribe()

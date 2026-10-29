@@ -112,7 +112,7 @@ function CloudSync() {
         {conflict && <Button variant="danger" disabled={busy} onClick={() => void useCloud()}>Usar la nube</Button>}
         <Button disabled={busy} onClick={() => void signOut().catch(fail)}><LogOut size={15} /> Salir</Button>
       </div>
-      <p className="text-xs text-muted">Bajar fusiona por fecha: gana la versión más nueva y no borra filas que solo existen acá. <Link to="/welcome" className="text-accent">Volver a la landing</Link></p>
+      <p className="text-xs text-muted">Con la sesión abierta, cuadernos, pizarras y el resto se suben y bajan solos. En otro dispositivo aparecen al entrar con la misma cuenta. Bajar fusiona por fecha: gana la versión más nueva. <Link to="/welcome" className="text-accent">Volver a la landing</Link></p>
     </div>
   )
 }

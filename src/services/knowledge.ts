@@ -15,6 +15,7 @@ export function addQuestion(text: string, links: { conceptId?: string | null; no
       conceptId: links.conceptId ?? null,
       noteId: links.noteId ?? null,
       createdAt: Date.now(),
+      updatedAt: Date.now(),
       resolvedAt: null,
     }
     await db.questions.add(q)
@@ -23,11 +24,11 @@ export function addQuestion(text: string, links: { conceptId?: string | null; no
 }
 
 export const updateQuestion = (id: string, changes: Partial<Pick<Question, 'text' | 'answer'>>) =>
-  guard('No se pudo actualizar la pregunta', () => db.questions.update(id, changes))
+  guard('No se pudo actualizar la pregunta', () => db.questions.update(id, { ...changes, updatedAt: Date.now() }))
 
 export const setQuestionResolved = (q: Question, resolved: boolean) =>
   guard('No se pudo actualizar la pregunta', () =>
-    db.questions.update(q.id, { resolved, resolvedAt: resolved ? Date.now() : null }),
+    db.questions.update(q.id, { resolved, resolvedAt: resolved ? Date.now() : null, updatedAt: Date.now() }),
   )
 
 export const deleteQuestion = (id: string) => guard('No se pudo eliminar la pregunta', () => db.questions.delete(id))
