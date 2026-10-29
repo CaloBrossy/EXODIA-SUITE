@@ -175,9 +175,11 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
   }
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (e.button === 1 || spaceRef.current) {
+    if (e.button === 1 || e.button === 2 || spaceRef.current) {
+      e.preventDefault()
       const v = viewRef.current
       panRef.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY, x: v.x, y: v.y }
+      setHand(true)
       try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* sigue el arrastre sin captura */ }
       return
     }
@@ -253,7 +255,10 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
   }
 
   const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (panRef.current?.id === e.pointerId) panRef.current = null
+    if (panRef.current?.id === e.pointerId) {
+      panRef.current = null
+      if (!spaceRef.current) setHand(false)
+    }
     const cur = currentRef.current
     if (!cur) return
     currentRef.current = null
