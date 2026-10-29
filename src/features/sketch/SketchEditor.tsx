@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ClipboardPaste, Download, Eraser, Pencil, Redo2, Trash2, Type, Undo2, X } from 'lucide-react'
+import { ClipboardPaste, Download, Eraser, Pencil, Redo2, Trash2, Type, Undo2, X, ZoomIn, ZoomOut } from 'lucide-react'
 import type { Sketch, Stroke } from '@/db/models'
 import { compactStroke, deleteSketch, saveSketch } from '@/services/sketches'
 import { useAutosave } from '@/hooks/useAutosave'
@@ -31,6 +31,12 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
   const currentRef = useRef<Stroke | null>(null)
   const frame = useRef(0)
   const sizeRef = useRef({ w: 0, h: 0, dpr: 1 })
+  const [view, setView] = useState({ zoom: 1, x: 0, y: 0 })
+  const viewRef = useRef(view)
+  viewRef.current = view
+  const spaceRef = useRef(false)
+  const panRef = useRef<{ id: number; sx: number; sy: number; x: number; y: number } | null>(null)
+  const [hand, setHand] = useState(false)
 
   const [tool, setTool] = useState<Tool>('pen')
   const [color, setColor] = useState(sketch.background === '#18181b' ? '#e8e5df' : '#1c1b19')
@@ -60,13 +66,12 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
     const layer = layerRef.current
     if (!c || !layer) return
     const ctx = c.getContext('2d')!
-    const { dpr } = sizeRef.current
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.clearRect(0, 0, c.width, c.height)
     ctx.drawImage(layer, 0, 0)
     const cur = currentRef.current
     if (cur) {
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      applyView(ctx)
       drawStroke(ctx, cur, { live: true, eraserPreviewColor: background })
     }
   }, [background])
@@ -77,8 +82,9 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
     layer.width = Math.max(1, Math.round(w * dpr))
     layer.height = Math.max(1, Math.round(h * dpr))
     const lctx = layer.getContext('2d')!
-    lctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    lctx.clearRect(0, 0, w, h)
+    lctx.setTransform(1, 0, 0, 1, 0, 0)
+    lctx.clearRect(0, 0, layer.width, layer.height)
+    applyView(lctx)
     for (const s of strokesRef.current) drawStroke(lctx, s)
     layerRef.current = layer
     paint()
@@ -103,6 +109,53 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
   }, [rebuildLayer])
 
   useEffect(() => paint(), [paint, background])
+  useEffect(() => { rebuildLayer() }, [view.zoom, view.x, view.y, rebuildLayer])
+
+  const applyView = (ctx: CanvasRenderingContext2D) => {
+    const { dpr } = sizeRef.current
+    const { zoom, x, y } = viewRef.current
+    ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, -x * zoom * dpr, -y * zoom * dpr)
+  }
+
+  const zoomAt = (next: number, sx: number, sy: number) => {
+    const v = viewRef.current
+    const zoom = Math.min(4, Math.max(0.25, next))
+    const wx = sx / v.zoom + v.x
+    const wy = sy / v.zoom + v.y
+    setView({ zoom, x: wx - sx / zoom, y: wy - sy / zoom })
+  }
+
+  useEffect(() => {
+    const wrap = wrapRef.current
+    if (!wrap) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const rect = wrap.getBoundingClientRect()
+      const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1
+      zoomAt(viewRef.current.zoom * factor, e.clientX - rect.left, e.clientY - rect.top)
+    }
+    const down = (e: KeyboardEvent) => {
+      if (e.code !== 'Space' || e.repeat) return
+      const t = e.target as HTMLElement | null
+      if (t && /^(input|textarea|select)$/i.test(t.tagName)) return
+      e.preventDefault()
+      spaceRef.current = true
+      setHand(true)
+    }
+    const up = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return
+      spaceRef.current = false
+      setHand(false)
+    }
+    wrap.addEventListener('wheel', onWheel, { passive: false })
+    window.addEventListener('keydown', down)
+    window.addEventListener('keyup', up)
+    return () => {
+      wrap.removeEventListener('wheel', onWheel)
+      window.removeEventListener('keydown', down)
+      window.removeEventListener('keyup', up)
+    }
+  }, [])
 
   const schedulePaint = () => {
     if (frame.current) return
@@ -112,13 +165,22 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
     })
   }
 
-  const pointFrom = (e: PointerEvent | React.PointerEvent, rect: DOMRect): [number, number, number] => [
-    e.clientX - rect.left,
-    e.clientY - rect.top,
-    e.pointerType === 'pen' ? e.pressure : 0.5,
-  ]
+  const pointFrom = (e: PointerEvent | React.PointerEvent, rect: DOMRect): [number, number, number] => {
+    const v = viewRef.current
+    return [
+      (e.clientX - rect.left) / v.zoom + v.x,
+      (e.clientY - rect.top) / v.zoom + v.y,
+      e.pointerType === 'pen' ? e.pressure : 0.5,
+    ]
+  }
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.button === 1 || spaceRef.current) {
+      const v = viewRef.current
+      panRef.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY, x: v.x, y: v.y }
+      try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* sigue el arrastre sin captura */ }
+      return
+    }
     if (tool === 'text') {
       commitDraft()
       const [x, y] = pointFrom(e, e.currentTarget.getBoundingClientRect())
@@ -138,6 +200,12 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
     schedulePaint()
   }
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const pan = panRef.current
+    if (pan && pan.id === e.pointerId) {
+      const v = viewRef.current
+      setView({ zoom: v.zoom, x: pan.x - (e.clientX - pan.sx) / v.zoom, y: pan.y - (e.clientY - pan.sy) / v.zoom })
+      return
+    }
     const cur = currentRef.current
     if (!cur) return
     const rect = e.currentTarget.getBoundingClientRect()
@@ -184,7 +252,8 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
     notify('No pude leer el portapapeles. Pegá el texto en el recuadro.', 'info')
   }
 
-  const onPointerUp = () => {
+  const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (panRef.current?.id === e.pointerId) panRef.current = null
     const cur = currentRef.current
     if (!cur) return
     currentRef.current = null
@@ -295,14 +364,19 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
           <Button size="icon" variant="ghost" title="Rehacer (Ctrl+Shift+Z)" aria-label="Rehacer" onClick={redo} disabled={redoRef.current.length === 0}><Redo2 size={15} /></Button>
           <Button size="icon" variant="ghost" title="Limpiar lienzo" aria-label="Limpiar lienzo" onClick={clear}><X size={15} /></Button>
         </div>
-        <span className={cx('ml-auto text-xs', status === 'error' ? 'text-danger' : 'text-muted')}>{statusText} · {strokesRef.current.length} trazos</span>
+        <div className="ml-auto flex items-center gap-0.5">
+          <Button size="icon" variant="ghost" title="Achicar" aria-label="Achicar" onClick={() => { const r = wrapRef.current?.getBoundingClientRect(); zoomAt(view.zoom / 1.25, (r?.width ?? 0) / 2, (r?.height ?? 0) / 2) }}><ZoomOut size={15} /></Button>
+          <button type="button" className="w-12 font-mono text-xs text-muted" title="Tamaño real" onClick={() => setView({ zoom: 1, x: 0, y: 0 })}>{Math.round(view.zoom * 100)}%</button>
+          <Button size="icon" variant="ghost" title="Ampliar" aria-label="Ampliar" onClick={() => { const r = wrapRef.current?.getBoundingClientRect(); zoomAt(view.zoom * 1.25, (r?.width ?? 0) / 2, (r?.height ?? 0) / 2) }}><ZoomIn size={15} /></Button>
+        </div>
+        <span className={cx('text-xs', status === 'error' ? 'text-danger' : 'text-muted')}>{statusText} · {strokesRef.current.length} trazos</span>
         <Button size="sm" onClick={exportImage}><Download size={14} /> PNG</Button>
         <Button size="icon" variant="ghost" title="Eliminar pizarra" aria-label="Eliminar pizarra" onClick={remove}><Trash2 size={15} /></Button>
       </div>
       <div ref={wrapRef} className="relative min-h-0 flex-1 overflow-hidden" style={{ background }}>
         <canvas
           ref={canvasRef}
-          className={cx('absolute inset-0 touch-none', tool === 'eraser' ? 'cursor-cell' : tool === 'text' ? 'cursor-text' : 'cursor-crosshair')}
+          className={cx('absolute inset-0 touch-none', hand || panRef.current ? 'cursor-grab' : tool === 'eraser' ? 'cursor-cell' : tool === 'text' ? 'cursor-text' : 'cursor-crosshair')}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -333,7 +407,7 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
               }
             }}
             className="absolute z-10 min-h-8 min-w-40 resize bg-transparent px-1 py-0.5 outline outline-accent/50"
-            style={{ left: draft.x, top: draft.y, color, fontSize: textSize, lineHeight: 1.3 }}
+            style={{ left: (draft.x - view.x) * view.zoom, top: (draft.y - view.y) * view.zoom, color, fontSize: textSize * view.zoom, lineHeight: 1.3 }}
           />
         )}
       </div>
