@@ -163,11 +163,12 @@ export const SessionSchema = z.object({
 export type FocusSession = z.infer<typeof SessionSchema>
 
 export const StrokeSchema = z.object({
-  tool: z.enum(['pen', 'eraser']),
+  tool: z.enum(['pen', 'eraser', 'text']),
   color: z.string().max(30),
   size: z.number().positive().max(200),
   /** Coordenadas planas [x0, y0, p0, x1, y1, p1, ...] */
   points: z.array(z.number()),
+  text: z.string().max(4000).optional(),
 })
 export type Stroke = z.infer<typeof StrokeSchema>
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Download, Eraser, Pencil, Redo2, Trash2, Undo2, X } from 'lucide-react'
+import { ClipboardPaste, Download, Eraser, Pencil, Redo2, Trash2, Type, Undo2, X } from 'lucide-react'
 import type { Sketch, Stroke } from '@/db/models'
 import { compactStroke, deleteSketch, saveSketch } from '@/services/sketches'
 import { useAutosave } from '@/hooks/useAutosave'
@@ -9,7 +9,7 @@ import { useFeedback } from '@/components/feedback'
 import { Button, cx, Input } from '@/components/ui'
 import { drawStroke, exportPng } from './render'
 
-type Tool = 'pen' | 'eraser'
+type Tool = 'pen' | 'eraser' | 'text'
 type Action = { type: 'add'; stroke: Stroke } | { type: 'clear'; prev: Stroke[] }
 
 const COLORS = ['#1c1b19', '#e8e5df', '#c2410c', '#a66a00', '#15803d', '#1d4ed8', '#7c3aed', '#be185d']
@@ -35,6 +35,13 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
   const [tool, setTool] = useState<Tool>('pen')
   const [color, setColor] = useState(sketch.background === '#18181b' ? '#e8e5df' : '#1c1b19')
   const [size, setSize] = useState(4)
+  const [textSize, setTextSize] = useState(22)
+  const [draft, setDraftState] = useState<{ x: number; y: number; value: string } | null>(null)
+  const draftRef = useRef<{ x: number; y: number; value: string } | null>(null)
+  const colorRef = useRef(color)
+  const textSizeRef = useRef(textSize)
+  colorRef.current = color
+  textSizeRef.current = textSize
   const [background, setBackground] = useState(sketch.background)
   const [title, setTitle] = useState(sketch.title)
   const [snapshot, setSnapshot] = useState({ strokes: sketch.strokes, title: sketch.title, background: sketch.background })
@@ -112,6 +119,14 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
   ]
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (tool === 'text') {
+      commitDraft()
+      const [x, y] = pointFrom(e, e.currentTarget.getBoundingClientRect())
+      const next = { x, y, value: '' }
+      draftRef.current = next
+      setDraftState(next)
+      return
+    }
     if (e.button !== 0 && e.pointerType === 'mouse') return
     try {
       e.currentTarget.setPointerCapture(e.pointerId)
@@ -131,6 +146,44 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
     for (const ev of events) cur.points.push(...pointFrom(ev, rect))
     schedulePaint()
   }
+  const placeText = (x: number, y: number, value: string) => {
+    const text = value.replace(/\s+$/g, '')
+    if (!text.trim()) return
+    const stroke: Stroke = { tool: 'text', color: colorRef.current, size: textSizeRef.current, points: [x, y, 0], text }
+    strokesRef.current = [...strokesRef.current, stroke]
+    undoRef.current.push({ type: 'add', stroke })
+    redoRef.current = []
+    const lctx = layerRef.current?.getContext('2d')
+    if (lctx) drawStroke(lctx, stroke)
+    paint()
+    bump()
+  }
+  const commitDraft = () => {
+    const d = draftRef.current
+    if (!d) return
+    draftRef.current = null
+    setDraftState(null)
+    placeText(d.x, d.y, d.value)
+  }
+  const pasteText = async () => {
+    setTool('text')
+    let value = ''
+    try {
+      value = await navigator.clipboard.readText()
+    } catch {
+      value = ''
+    }
+    commitDraft()
+    if (value.trim()) {
+      placeText(32, 32, value)
+      return
+    }
+    const next = { x: 32, y: 32, value: '' }
+    draftRef.current = next
+    setDraftState(next)
+    notify('No pude leer el portapapeles. Pegá el texto en el recuadro.', 'info')
+  }
+
   const onPointerUp = () => {
     const cur = currentRef.current
     if (!cur) return
@@ -201,6 +254,7 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
     { combo: 'mod+y', handler: redo },
     { combo: 'p', handler: () => setTool('pen') },
     { combo: 'e', handler: () => setTool('eraser') },
+    { combo: 't', handler: () => setTool('text') },
   ])
 
   const statusText = status === 'saved' ? 'Guardado' : status === 'error' ? 'Error al guardar' : 'Guardando…'
@@ -211,6 +265,8 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
         <Input value={title} onChange={(e) => setTitle(e.target.value)} className="h-8 w-48" aria-label="Título de la pizarra" />
         <div className="flex gap-0.5 rounded-md border border-line p-0.5">
           <button title="Lápiz (P)" aria-pressed={tool === 'pen'} onClick={() => setTool('pen')} className={cx('rounded p-1.5', tool === 'pen' ? 'bg-sunken' : 'text-muted')}><Pencil size={15} /></button>
+          <button title="Texto (T)" aria-pressed={tool === 'text'} onClick={() => setTool('text')} className={cx('rounded p-1.5', tool === 'text' ? 'bg-sunken' : 'text-muted')}><Type size={15} /></button>
+          <button title="Pegar texto" aria-label="Pegar texto" onClick={() => void pasteText()} className="rounded p-1.5 text-muted"><ClipboardPaste size={15} /></button>
           <button title="Borrador (E)" aria-pressed={tool === 'eraser'} onClick={() => setTool('eraser')} className={cx('rounded p-1.5', tool === 'eraser' ? 'bg-sunken' : 'text-muted')}><Eraser size={15} /></button>
         </div>
         <div className="flex items-center gap-1" role="radiogroup" aria-label="Color">
@@ -220,9 +276,16 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
           <input type="color" value={color} onChange={(e) => { setColor(e.target.value); setTool('pen') }} aria-label="Color personalizado" className="h-6 w-7 cursor-pointer rounded border border-line bg-transparent" />
         </div>
         <label className="flex items-center gap-1.5 text-xs text-muted">
-          Grosor
-          <input type="range" min={1} max={32} value={size} onChange={(e) => setSize(Number(e.target.value))} className="w-24 accent-[var(--nx-accent)]" />
-          <span className="w-5 font-mono">{size}</span>
+          {tool === 'text' ? 'Tamaño' : 'Grosor'}
+          <input
+            type="range"
+            min={tool === 'text' ? 12 : 1}
+            max={tool === 'text' ? 72 : 32}
+            value={tool === 'text' ? textSize : size}
+            onChange={(e) => (tool === 'text' ? setTextSize(Number(e.target.value)) : setSize(Number(e.target.value)))}
+            className="w-24 accent-[var(--nx-accent)]"
+          />
+          <span className="w-5 font-mono">{tool === 'text' ? textSize : size}</span>
         </label>
         <select value={background} onChange={(e) => setBackground(e.target.value)} className="h-8 rounded-md border border-line bg-panel px-2 text-xs" aria-label="Fondo">
           {BACKGROUNDS.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
@@ -239,7 +302,7 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
       <div ref={wrapRef} className="relative min-h-0 flex-1 overflow-hidden" style={{ background }}>
         <canvas
           ref={canvasRef}
-          className={cx('absolute inset-0 touch-none', tool === 'eraser' ? 'cursor-cell' : 'cursor-crosshair')}
+          className={cx('absolute inset-0 touch-none', tool === 'eraser' ? 'cursor-cell' : tool === 'text' ? 'cursor-text' : 'cursor-crosshair')}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -247,6 +310,32 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
           onContextMenu={(e) => e.preventDefault()}
           aria-label="Lienzo de dibujo"
         />
+        {draft && (
+          <textarea
+            autoFocus
+            value={draft.value}
+            aria-label="Texto de la pizarra"
+            placeholder="Escribí o pegá"
+            onChange={(e) => {
+              const next = { ...draft, value: e.target.value }
+              draftRef.current = next
+              setDraftState(next)
+            }}
+            onBlur={commitDraft}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                commitDraft()
+              }
+              if (e.key === 'Escape') {
+                draftRef.current = null
+                setDraftState(null)
+              }
+            }}
+            className="absolute z-10 min-h-8 min-w-40 resize bg-transparent px-1 py-0.5 outline outline-accent/50"
+            style={{ left: draft.x, top: draft.y, color, fontSize: textSize, lineHeight: 1.3 }}
+          />
+        )}
       </div>
     </div>
   )

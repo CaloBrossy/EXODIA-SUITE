@@ -443,9 +443,10 @@ function strokes(v: Json): Stroke[] {
   return v.flatMap((item) => {
     if (!item || typeof item !== 'object' || Array.isArray(item)) return []
     const o = item as Record<string, Json | undefined>
-    if (o.tool !== 'pen' && o.tool !== 'eraser') return []
+    if (o.tool !== 'pen' && o.tool !== 'eraser' && o.tool !== 'text') return []
     const points = Array.isArray(o.points) ? o.points.filter((n): n is number => typeof n === 'number') : []
-    return [{ tool: o.tool, color: typeof o.color === 'string' ? o.color : '#fff', size: typeof o.size === 'number' ? o.size : 2, points }]
+    const text = typeof o.text === 'string' ? o.text : undefined
+    return [{ tool: o.tool, color: typeof o.color === 'string' ? o.color : '#fff', size: typeof o.size === 'number' ? o.size : 2, points, ...(text ? { text } : {}) }]
   })
 }
 

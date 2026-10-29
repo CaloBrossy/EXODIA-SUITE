@@ -46,6 +46,19 @@ export function strokePath(s: Stroke, live = false): Path2D {
 }
 
 export function drawStroke(ctx: CanvasRenderingContext2D, s: Stroke, opts: { live?: boolean; eraserPreviewColor?: string } = {}): void {
+  if (s.tool === 'text') {
+    if (!s.text) return
+    const x = s.points[0] ?? 0
+    const y = s.points[1] ?? 0
+    ctx.save()
+    ctx.fillStyle = s.color
+    ctx.font = `${s.size}px ui-sans-serif, system-ui, sans-serif`
+    ctx.textBaseline = 'top'
+    const lineH = s.size * 1.3
+    s.text.split('\n').forEach((line, i) => ctx.fillText(line, x, y + i * lineH))
+    ctx.restore()
+    return
+  }
   ctx.save()
   if (s.tool === 'eraser' && !opts.eraserPreviewColor) {
     ctx.globalCompositeOperation = 'destination-out'
@@ -61,6 +74,16 @@ export function bounds(strokes: Stroke[]): { maxX: number; maxY: number } {
   let maxX = 0
   let maxY = 0
   for (const s of strokes) {
+    if (s.tool === 'text' && s.text) {
+      const x = s.points[0] ?? 0
+      const y = s.points[1] ?? 0
+      const lines = s.text.split('\n')
+      const w = Math.max(...lines.map((l) => l.length), 1) * s.size * 0.6
+      const h = lines.length * s.size * 1.3
+      maxX = Math.max(maxX, x + w)
+      maxY = Math.max(maxY, y + h)
+      continue
+    }
     for (let i = 0; i + 1 < s.points.length; i += 3) {
       maxX = Math.max(maxX, s.points[i]! + s.size)
       maxY = Math.max(maxY, s.points[i + 1]! + s.size)
