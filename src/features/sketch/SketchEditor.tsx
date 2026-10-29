@@ -36,6 +36,8 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
   viewRef.current = view
   const spaceRef = useRef(false)
   const panRef = useRef<{ id: number; sx: number; sy: number; x: number; y: number } | null>(null)
+  const touchesRef = useRef(new Map<number, { x: number; y: number }>())
+  const gestureRef = useRef<{ lx: number; ly: number; x: number; y: number; zoom: number; dist: number } | null>(null)
   const [hand, setHand] = useState(false)
 
   const [tool, setTool] = useState<Tool>('pen')
@@ -174,7 +176,44 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
     ]
   }
 
+  const touchPts = () => [...touchesRef.current.values()]
+  const beginGesture = () => {
+    const canvas = canvasRef.current
+    const pts = touchPts()
+    if (!canvas || pts.length < 2) return
+    const rect = canvas.getBoundingClientRect()
+    const x = pts.reduce((s, p) => s + p.x, 0) / pts.length
+    const y = pts.reduce((s, p) => s + p.y, 0) / pts.length
+    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+    const v = viewRef.current
+    currentRef.current = null
+    gestureRef.current = { lx: x - rect.left, ly: y - rect.top, x: v.x, y: v.y, zoom: v.zoom, dist: Math.max(dist, 1) }
+    setHand(true)
+    paint()
+  }
+  const applyGesture = () => {
+    const g = gestureRef.current
+    const canvas = canvasRef.current
+    const pts = touchPts()
+    if (!g || !canvas || pts.length < 2) return
+    const rect = canvas.getBoundingClientRect()
+    const x = pts.reduce((s, p) => s + p.x, 0) / pts.length
+    const y = pts.reduce((s, p) => s + p.y, 0) / pts.length
+    const zoom = Math.min(4, Math.max(0.25, g.zoom * (Math.max(Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y), 1) / g.dist)))
+    const lx = x - rect.left
+    const ly = y - rect.top
+    setView({ zoom, x: g.x + g.lx / g.zoom - lx / zoom, y: g.y + g.ly / g.zoom - ly / zoom })
+  }
+
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.pointerType === 'touch') {
+      touchesRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* el segundo dedo sigue sin captura */ }
+      if (touchesRef.current.size >= 2) {
+        beginGesture()
+        return
+      }
+    }
     if (e.button === 1 || e.button === 2 || spaceRef.current) {
       e.preventDefault()
       const v = viewRef.current
@@ -202,6 +241,13 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
     schedulePaint()
   }
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.pointerType === 'touch' && touchesRef.current.has(e.pointerId)) {
+      touchesRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (touchesRef.current.size >= 2) {
+        applyGesture()
+        return
+      }
+    }
     const pan = panRef.current
     if (pan && pan.id === e.pointerId) {
       const v = viewRef.current
@@ -255,6 +301,11 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
   }
 
   const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.pointerType === 'touch') touchesRef.current.delete(e.pointerId)
+    if (gestureRef.current && touchesRef.current.size < 2) {
+      gestureRef.current = null
+      if (!spaceRef.current && !panRef.current) setHand(false)
+    }
     if (panRef.current?.id === e.pointerId) {
       panRef.current = null
       if (!spaceRef.current) setHand(false)
