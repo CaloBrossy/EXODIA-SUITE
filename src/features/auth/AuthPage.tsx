@@ -9,7 +9,7 @@ import { StorageError } from '@/services/errors'
 import { useFeedback } from '@/components/feedback'
 
 export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
-  const { configured, session, restoring, signIn, signUp, signInWithProvider } = useAuth()
+  const { configured, session, restoring, signIn, signUp } = useAuth()
   const { fail, notify } = useFeedback()
   const [params] = useSearchParams()
   const navigate = useNavigate()
@@ -18,6 +18,18 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [info, setInfo] = useState('')
+  const [caps, setCaps] = useState(false)
+  const [passwordOn, setPasswordOn] = useState(false)
+
+  useEffect(() => {
+    const sync = (e: KeyboardEvent) => setCaps(e.getModifierState('CapsLock'))
+    window.addEventListener('keydown', sync)
+    window.addEventListener('keyup', sync)
+    return () => {
+      window.removeEventListener('keydown', sync)
+      window.removeEventListener('keyup', sync)
+    }
+  }, [])
 
   useEffect(() => {
     const robots = document.querySelector('meta[name="robots"]')
@@ -33,17 +45,6 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   }, [params, fail])
 
   if (!restoring && session) return <Navigate to={back} replace />
-
-  const oauth = async (provider: 'google' | 'github') => {
-    setBusy(true)
-    setInfo('')
-    try {
-      await signInWithProvider(provider, back)
-    } catch (e) {
-      fail(e)
-      setBusy(false)
-    }
-  }
 
   const submit = async () => {
     setBusy(true)
@@ -82,13 +83,34 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         {!configured && <ErrorText>Supabase no está configurado en este entorno. La landing y el laboratorio local siguen disponibles.</ErrorText>}
         <form className="mt-5 flex flex-col gap-3" onSubmit={(e) => { e.preventDefault(); void submit() }}>
           <Input type="email" autoComplete="email" placeholder="email" value={email} onChange={(e) => setEmail(e.target.value)} required aria-label="Email" />
-          <Input type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder={mode === 'login' ? 'contraseña' : 'contraseña (10+, letras y números)'} value={password} onChange={(e) => setPassword(e.target.value)} minLength={mode === 'login' ? 6 : 10} required aria-label="Contraseña" />
+          <div>
+            <Input
+              type="password"
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              placeholder={mode === 'login' ? 'contraseña' : 'contraseña (10+, letras y números)'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onFocus={() => setPasswordOn(true)}
+              onBlur={() => setPasswordOn(false)}
+              onKeyDown={(e) => setCaps(e.getModifierState('CapsLock'))}
+              minLength={mode === 'login' ? 6 : 10}
+              required
+              aria-label="Contraseña"
+              aria-describedby={passwordOn && caps ? 'caps-lock' : undefined}
+            />
+            {passwordOn && caps && (
+              <p id="caps-lock" role="status" className="mt-1.5 flex items-center gap-1.5 text-xs text-danger">
+                <span className="h-1.5 w-1.5 rounded-full bg-danger" />
+                Mayúsculas activadas
+              </p>
+            )}
+          </div>
           <Button type="submit" variant="primary" disabled={busy || !configured}>{mode === 'login' ? 'Entrar' : 'Crear cuenta'}</Button>
         </form>
         <div className="mt-4 flex items-center gap-3 text-xs text-muted"><span className="h-px flex-1 bg-line" />o<span className="h-px flex-1 bg-line" /></div>
         <div className="mt-4 flex flex-col gap-2">
-          <Button className="w-full justify-center" disabled={busy || !configured} onClick={() => void oauth('google')}>Continuar con Google</Button>
-          <Button className="w-full justify-center" disabled={busy || !configured} onClick={() => void oauth('github')}>Continuar con GitHub</Button>
+          <Button className="w-full justify-center" disabled title="En desarrollo">Continuar con Google · En desarrollo</Button>
+          <Button className="w-full justify-center" disabled title="En desarrollo">Continuar con GitHub · En desarrollo</Button>
         </div>
         {info && <p className="mt-3 text-sm text-muted">{info}</p>}
         <p className="mt-4 text-sm text-muted">

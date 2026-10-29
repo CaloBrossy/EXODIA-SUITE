@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import katex from 'katex'
+import { showPowers } from '@/lib/markdown/powers'
 import { cx } from './ui'
 
 /** Solo se permiten enlaces http(s), mailto y rutas internas: nunca javascript: ni data:. */
@@ -34,7 +35,7 @@ export const Markdown = memo(function Markdown({ source, className }: { source: 
         urlTransform={safeUrl}
         components={components}
       >
-        {source}
+        {showPowers(source)}
       </ReactMarkdown>
     </div>
   )
