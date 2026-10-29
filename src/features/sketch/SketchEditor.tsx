@@ -177,6 +177,11 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
   }
 
   const touchPts = () => [...touchesRef.current.values()]
+  const fingerGap = (pts: { x: number; y: number }[]) => {
+    const a = pts[0]
+    const b = pts[1]
+    return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0
+  }
   const beginGesture = () => {
     const canvas = canvasRef.current
     const pts = touchPts()
@@ -184,7 +189,7 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
     const rect = canvas.getBoundingClientRect()
     const x = pts.reduce((s, p) => s + p.x, 0) / pts.length
     const y = pts.reduce((s, p) => s + p.y, 0) / pts.length
-    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+    const dist = fingerGap(pts)
     const v = viewRef.current
     currentRef.current = null
     gestureRef.current = { lx: x - rect.left, ly: y - rect.top, x: v.x, y: v.y, zoom: v.zoom, dist: Math.max(dist, 1) }
@@ -199,7 +204,7 @@ export function SketchEditor({ sketch }: { sketch: Sketch }) {
     const rect = canvas.getBoundingClientRect()
     const x = pts.reduce((s, p) => s + p.x, 0) / pts.length
     const y = pts.reduce((s, p) => s + p.y, 0) / pts.length
-    const zoom = Math.min(4, Math.max(0.25, g.zoom * (Math.max(Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y), 1) / g.dist)))
+    const zoom = Math.min(4, Math.max(0.25, g.zoom * (Math.max(fingerGap(pts), 1) / g.dist)))
     const lx = x - rect.left
     const ly = y - rect.top
     setView({ zoom, x: g.x + g.lx / g.zoom - lx / zoom, y: g.y + g.ly / g.zoom - ly / zoom })
