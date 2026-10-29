@@ -1,5 +1,6 @@
 import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { Link } from 'react-router-dom'
+import { ObservatoryCore } from '@/components/ObservatoryCore'
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
 
@@ -116,7 +117,15 @@ export function Empty({ title, children, action }: { title: string; children?: R
 }
 
 export function Loading({ label = 'Cargando…' }: { label?: string }) {
-  return <p className="flex items-center gap-2 py-4 text-sm text-muted"><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />{label}</p>
+  return (
+    <div role="status" aria-live="polite" className="flex h-full min-h-[70vh] w-full flex-col items-center justify-center gap-4">
+      <ObservatoryCore size={156} detailed live />
+      <div className="text-center">
+        <p className="font-mono text-[13px] font-semibold tracking-[0.32em] text-fg">EXODIA</p>
+        <p className="mt-2 font-mono text-[10px] tracking-[0.2em] text-muted uppercase">{label}</p>
+      </div>
+    </div>
+  )
 }
 
 export function ErrorText({ children }: { children: ReactNode }) {

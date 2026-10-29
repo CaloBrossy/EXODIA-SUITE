@@ -158,7 +158,7 @@ export function Layout() {
         </div>
         <PwaStatus />
         <main className="min-h-0 flex-1 overflow-y-auto">
-          <Suspense fallback={<div className="p-6"><Loading /></div>}>
+          <Suspense fallback={<Loading />}>
             <div key={section} className="page-in h-full">
               <Outlet />
             </div>

@@ -34,7 +34,7 @@ function StorageGate({ children }: { children: React.ReactNode }) {
       .then(() => setState('ok'))
       .catch((e) => setState(describeStorageError(e)))
   }, [])
-  if (state === 'opening') return <p className="p-6 text-sm text-muted">Abriendo la base de datos local…</p>
+  if (state === 'opening') return <Loading label="Abriendo la base de datos local…" />
   if (state !== 'ok')
     return (
       <div className="mx-auto max-w-lg p-8">
@@ -58,7 +58,7 @@ function PublicShell() {
   return (
     <>
       {auth && <CosmicBackground />}
-      <Suspense fallback={<div className="p-8"><Loading /></div>}>
+      <Suspense fallback={<Loading />}>
         <Outlet />
       </Suspense>
     </>
@@ -67,7 +67,7 @@ function PublicShell() {
 
 function RootGate() {
   const { session, restoring } = useAuth()
-  if (restoring) return <p className="relative z-10 p-8 text-sm text-muted">Alineando el observatorio…</p>
+  if (restoring) return <Loading label="Alineando el observatorio…" />
   if (rootDestination({ session: !!session, entered: enteredOps() }) === '/app') return <Navigate to="/app" replace />
   return <LandingPage />
 }
