@@ -1,7 +1,16 @@
 import { useEffect, useId, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import type { Session } from '@supabase/supabase-js'
 import { useAuth } from '@/hooks/useAuth'
 import { ButtonLink } from '@/components/ui'
+
+export function accountName(session: Session): string {
+  const meta = session.user.user_metadata ?? {}
+  const named = [meta.full_name, meta.name, meta.preferred_username, meta.user_name].find((v) => typeof v === 'string' && v.trim())
+  if (typeof named === 'string') return named.trim()
+  const local = session.user.email?.split('@')[0]?.trim()
+  return local || 'usuario'
+}
 
 export function AccountChip() {
   const { session } = useAuth()
@@ -26,7 +35,10 @@ export function AccountChip() {
     return () => window.removeEventListener('pointerdown', close)
   }, [open, fine])
 
-  if (session) return null
+  if (session) {
+    const name = accountName(session)
+    return <p className="max-w-[14rem] truncate text-[13px] leading-7 text-fg" title={`Hola, ${name}`}>Hola, {name}</p>
+  }
 
   return (
     <div className="flex items-center gap-1">

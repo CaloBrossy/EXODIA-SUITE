@@ -2,7 +2,6 @@ import { Suspense, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Menu, Moon, Search, Sun } from 'lucide-react'
 import { useOnline, useHotkeys, useTheme, useTiltEffect } from '@/hooks/misc'
-import { useAuth } from '@/hooks/useAuth'
 import { usePomodoro } from '@/hooks/usePomodoro'
 import { formatClock, PhaseLabel, progress, remaining } from '@/lib/pomodoro'
 import { createNote } from '@/services/notes'
@@ -48,7 +47,6 @@ function MiniTimer() {
 
 export function Layout() {
   const { theme, toggle } = useTheme()
-  const { session } = useAuth()
   const online = useOnline()
   const [menu, setMenu] = useState(false)
   const [palette, setPalette] = useState<{ open: boolean; query: string }>({ open: false, query: '' })
@@ -155,11 +153,9 @@ export function Layout() {
             <AccountChip />
           </div>
         </header>
-        {!session && (
-          <div className="hidden justify-end px-4 pt-2 md:flex">
-            <AccountChip />
-          </div>
-        )}
+        <div className="hidden justify-end px-4 pt-2 md:flex">
+          <AccountChip />
+        </div>
         <PwaStatus />
         <main className="min-h-0 flex-1 overflow-y-auto">
           <Suspense fallback={<div className="p-6"><Loading /></div>}>
